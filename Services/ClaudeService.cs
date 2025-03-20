@@ -20,10 +20,12 @@ public class ClaudeService
 
     public async Task<string> GetCompletionAsync(string prompt)
     {
+        var formattedPrompt = $"\n\nHuman: {prompt}\n\nAssistant:";
+
         var claudeRequest = new
         {
             model = _configuration["Claude:Model"],
-            prompt = prompt,
+            prompt = formattedPrompt,
             max_tokens_to_sample = 100
         };
 
@@ -31,7 +33,6 @@ public class ClaudeService
 
         if (!response.IsSuccessStatusCode)
         {
-            // Gestion explicite des erreurs API
             return $"Erreur Claude API : {response.StatusCode}";
         }
 
@@ -44,4 +45,5 @@ public class ClaudeService
 
         return "Erreur : réponse invalide de Claude.";
     }
+
 }
