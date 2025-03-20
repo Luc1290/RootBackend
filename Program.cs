@@ -1,15 +1,22 @@
+﻿using RootBackend.Services;
+using System.Text.Json;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+var claudeApiKey = builder.Configuration["Claude:ApiKey"];
 
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHttpClient<ClaudeService>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+app.UseCors(policy => policy
+    .AllowAnyOrigin()
+    .AllowAnyMethod()
+    .AllowAnyHeader());
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -17,9 +24,17 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.UseAuthorization();
 
 app.MapControllers();
 
+app.MapPost("/api/chat", async (ChatRequest request, ClaudeService claudeService) =>
+{
+    var reply = await claudeService.GetCompletionAsync(request.Message);
+    return Results.Json(new { reply });
+});
+
 app.Run();
+
+// 👇 Place ici après tout le reste !
+record ChatRequest(string Message);
