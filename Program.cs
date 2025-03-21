@@ -12,7 +12,8 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("https://rootfrontend-production.up.railway.app")
+        policy.WithOrigins("https://www.rootai.fr")
+              .WithOrigins("https://rootfrontend-production.up.railway.app")
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
