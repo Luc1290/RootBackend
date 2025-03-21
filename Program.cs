@@ -1,4 +1,7 @@
-﻿using RootBackend.Services;
+﻿using RootBackend.Data;
+using RootBackend.Services;
+using Microsoft.EntityFrameworkCore;
+
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,6 +12,27 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient<ClaudeService>();
+builder.Services.AddDbContext<MemoryContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+
+if (!string.IsNullOrEmpty(databaseUrl))
+{
+    var uri = new Uri(databaseUrl);
+    var userInfo = uri.UserInfo.Split(':');
+
+    var connectionString = $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Require;Trust Server Certificate=true";
+
+    builder.Services.AddDbContext<MemoryContext>(options =>
+        options.UseNpgsql(connectionString));
+}
+else
+{
+    builder.Services.AddDbContext<MemoryContext>(options =>
+        options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+}
+
+
 
 var app = builder.Build();
 
