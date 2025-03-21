@@ -20,13 +20,22 @@ namespace RootBackend.Controllers
         [HttpPost]
         public async Task<IActionResult> PostMessage([FromBody] MessageLog message)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
 
-            _context.Messages.Add(message);
-            await _context.SaveChangesAsync();
-            return Ok(message);
+                _context.Messages.Add(message);
+                await _context.SaveChangesAsync();
+                return Ok(message);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("❌ ERREUR MESSAGE DB : " + ex.Message);
+                return StatusCode(500, new { error = ex.Message });
+            }
         }
+
 
         // GET: api/messages
         [HttpGet]
