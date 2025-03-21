@@ -46,11 +46,6 @@ else
 
 var app = builder.Build();
 
-app.UseCors(policy => policy
-    .AllowAnyOrigin()
-    .AllowAnyMethod()
-    .AllowAnyHeader());
-
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -58,8 +53,12 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseRouting();
 app.UseCors("AllowFrontend");
 app.UseAuthorization();
+
+app.MapControllers();
+
 
 app.MapControllers();
 
