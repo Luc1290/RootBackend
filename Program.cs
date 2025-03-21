@@ -7,7 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 var claudeApiKey = builder.Configuration["Claude:ApiKey"];
 
-// CORS : autoriser le front en prod
+// 🔐 CORS pour ton frontend Railway
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -23,20 +23,32 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient<ClaudeService>();
 
-// Connexion PostgreSQL depuis Railway ou locale
+// 🔎 Log DATABASE_URL
 var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+Console.WriteLine("➡️ DATABASE_URL: " + databaseUrl);
 
+// ✅ PostgreSQL configuration dynamique
 if (!string.IsNullOrEmpty(databaseUrl))
 {
-    var uri = new Uri(databaseUrl);
-    var userInfo = uri.UserInfo.Split(':');
-    var connectionString = $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Require;Trust Server Certificate=true";
+    try
+    {
+        var uri = new Uri(databaseUrl);
+        var userInfo = uri.UserInfo.Split(':');
+        var connectionString = $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Require;Trust Server Certificate=true";
 
-    builder.Services.AddDbContext<MemoryContext>(options =>
-        options.UseNpgsql(connectionString));
+        Console.WriteLine($"➡️ Connexion PostgreSQL via Railway: {connectionString}");
+
+        builder.Services.AddDbContext<MemoryContext>(options =>
+            options.UseNpgsql(connectionString));
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("❌ Erreur parsing DATABASE_URL: " + ex.Message);
+    }
 }
 else
 {
+    Console.WriteLine("⚠️ Pas de DATABASE_URL trouvé, fallback sur appsettings");
     builder.Services.AddDbContext<MemoryContext>(options =>
         options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 }
@@ -51,14 +63,12 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// 👇 IMPORTANT : bien placer dans cet ordre
 app.UseRouting();
 app.UseCors("AllowFrontend");
 app.UseAuthorization();
 
 app.MapControllers();
 
-// Route directe pour Claude
 app.MapPost("/api/chat", async (ChatRequest request, ClaudeService claudeService) =>
 {
     var reply = await claudeService.GetCompletionAsync(request.Message);
