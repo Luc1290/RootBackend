@@ -12,6 +12,16 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient<ClaudeService>();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("https://rootfrontend-production.up.railway.app")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
 builder.Services.AddDbContext<MemoryContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
@@ -48,6 +58,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors("AllowFrontend");
 app.UseAuthorization();
 
 app.MapControllers();
@@ -57,6 +68,8 @@ app.MapPost("/api/chat", async (ChatRequest request, ClaudeService claudeService
     var reply = await claudeService.GetCompletionAsync(request.Message);
     return Results.Json(new { reply });
 });
+
+
 
 app.Run();
 
