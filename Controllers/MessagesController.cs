@@ -39,22 +39,27 @@ namespace RootBackend.Controllers
 
         // GET: api/messages
         [HttpGet]
-        public async Task<IActionResult> GetMessages()
+        public async Task<IActionResult> GetMessages([FromHeader(Name = "X-Admin-Token")] string? adminToken)
         {
-            var messages = await _context.Messages.OrderByDescending(m => m.Timestamp).Take(100).ToListAsync();
-            return Ok(messages);
+            try
+            {
+                // 🔐 Vérifie le token admin
+                var expectedToken = Environment.GetEnvironmentVariable("ADMIN_API_TOKEN");
+                if (string.IsNullOrEmpty(adminToken) || adminToken != expectedToken)
+                {
+                    return Forbid("🚫 Accès refusé : Token invalide !");
+                }
+
+                // ✅ Si le token est bon, retourne les messages
+                var messages = await _context.Messages.ToListAsync();
+                return Ok(messages);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("❌ ERREUR GET MESSAGES : " + ex.Message);
+                return StatusCode(500, new { error = ex.Message });
+            }
         }
 
-        // GET: api/messages/source/public
-        [HttpGet("source/{source}")]
-        public async Task<IActionResult> GetMessagesBySource(string source)
-        {
-            var messages = await _context.Messages
-                .Where(m => m.Source.ToLower() == source.ToLower())
-                .OrderByDescending(m => m.Timestamp)
-                .Take(100)
-                .ToListAsync();
-            return Ok(messages);
-        }
     }
 }
