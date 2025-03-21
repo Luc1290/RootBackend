@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using RootBackend.Data;
 using RootBackend.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace RootBackend.Controllers
 {
@@ -29,19 +30,22 @@ namespace RootBackend.Controllers
 
         // GET: api/messages
         [HttpGet]
-        public IActionResult GetMessages()
+        public async Task<IActionResult> GetMessages()
         {
-            return Ok(_context.Messages.OrderByDescending(m => m.Timestamp).Take(100));
+            var messages = await _context.Messages.OrderByDescending(m => m.Timestamp).Take(100).ToListAsync();
+            return Ok(messages);
         }
 
         // GET: api/messages/source/public
         [HttpGet("source/{source}")]
-        public IActionResult GetMessagesBySource(string source)
+        public async Task<IActionResult> GetMessagesBySource(string source)
         {
-            return Ok(_context.Messages
+            var messages = await _context.Messages
                 .Where(m => m.Source.ToLower() == source.ToLower())
                 .OrderByDescending(m => m.Timestamp)
-                .Take(100));
+                .Take(100)
+                .ToListAsync();
+            return Ok(messages);
         }
     }
 }
