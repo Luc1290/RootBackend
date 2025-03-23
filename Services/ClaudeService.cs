@@ -28,7 +28,7 @@ public class ClaudeService
         {
             model = "claude-3-haiku-20240307", // Updated to a current model name
             messages = new[] { new { role = "user", content = htmlPrompt } },
-            max_tokens = 10000 // Increased token limit for more complete responses
+            max_tokens = 4090 // Increased token limit for more complete responses
         };
 
         var response = await _httpClient.PostAsJsonAsync(_configuration["Claude:ApiUrl"], claudeRequest);
