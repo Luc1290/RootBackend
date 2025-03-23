@@ -50,7 +50,8 @@ public class ClaudeService
                 var firstContent = contentArray[0];
                 if (firstContent.TryGetProperty("text", out var textElement))
                 {
-                    return textElement.GetString() ?? "No text returned";
+                    return System.Net.WebUtility.HtmlDecode(textElement.GetString() ?? "No text returned");
+
                 }
             }
 
