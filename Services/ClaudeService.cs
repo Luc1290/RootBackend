@@ -19,12 +19,16 @@ public class ClaudeService
     }
 
     public async Task<string> GetCompletionAsync(string prompt)
+
     {
+        // Ajout d'une consigne HTML-friendly
+        var htmlPrompt = prompt + "\n\nRéponds uniquement au format HTML clair et structuré. Utilise les balises <p>, <ul>, <ol>, <li>, <strong>, <em>, <pre>, <code> si besoin. Ne pas échapper le HTML. Ne réponds pas avec des ``` ou des balises Markdown.";
+
         var claudeRequest = new
         {
             model = "claude-3-haiku-20240307", // Updated to a current model name
-            messages = new[] { new { role = "user", content = prompt } },
-            max_tokens = 1000 // Increased token limit for more complete responses
+            messages = new[] { new { role = "user", content = htmlPrompt } },
+            max_tokens = 10000 // Increased token limit for more complete responses
         };
 
         var response = await _httpClient.PostAsJsonAsync(_configuration["Claude:ApiUrl"], claudeRequest);
