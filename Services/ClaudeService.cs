@@ -1,5 +1,6 @@
 ﻿using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Net;
 
 namespace RootBackend.Services;
 
@@ -13,22 +14,28 @@ public class ClaudeService
         _httpClient = httpClient;
         _configuration = configuration;
 
-        // Proper HttpClient initialization
         _httpClient.DefaultRequestHeaders.Add("x-api-key", _configuration["Claude:ApiKey"]);
         _httpClient.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
     }
 
     public async Task<string> GetCompletionAsync(string prompt)
-
     {
-        // Ajout d'une consigne HTML-friendly
-        var htmlPrompt = prompt + "\n\nRéponds uniquement au format HTML clair et structuré. Utilise les balises <p>, <ul>, <ol>, <li>, <strong>, <em>, <pre>, <code> si besoin. Ne pas échapper le HTML. Ne réponds pas avec des ``` ou des balises Markdown.";
+        var htmlPrompt = prompt + @"
+
+INSTRUCTIONS IMPORTANTES :
+
+- Réponds toujours en HTML sémantique bien formé.
+- Utilise uniquement ces balises autorisées : <p>, <strong>, <em>, <ul>, <ol>, <li>, <pre>, <code>, <br>, <hr>.
+- Pour le code, utilise : <pre><code class='language-csharp'> ... </code></pre> (ou language-js, language-html…).
+- N'utilise jamais <script>, <iframe>, <style> ou d'autres balises actives.
+- Ne pas échapper le HTML. Pas de Markdown.
+- Structure toujours tes réponses avec des paragraphes et des titres clairs.";
 
         var claudeRequest = new
         {
-            model = "claude-3-haiku-20240307", // Updated to a current model name
+            model = "claude-3-haiku-20240307",
             messages = new[] { new { role = "user", content = htmlPrompt } },
-            max_tokens = 4090 // Increased token limit for more complete responses
+            max_tokens = 4090
         };
 
         var response = await _httpClient.PostAsJsonAsync(_configuration["Claude:ApiUrl"], claudeRequest);
@@ -50,17 +57,32 @@ public class ClaudeService
                 var firstContent = contentArray[0];
                 if (firstContent.TryGetProperty("text", out var textElement))
                 {
-                    return System.Net.WebUtility.HtmlDecode(textElement.GetString() ?? "No text returned");
-
+                    var decoded = WebUtility.HtmlDecode(textElement.GetString() ?? "No text returned");
+                    return SanitizeHtml(decoded);
                 }
             }
 
-            // Fallback if the expected structure isn't found
             return $"Couldn't parse Claude response: {responseContent.Substring(0, Math.Min(100, responseContent.Length))}...";
         }
         catch (Exception ex)
         {
             return $"Error parsing Claude response: {ex.Message} - {responseContent.Substring(0, Math.Min(100, responseContent.Length))}...";
         }
+    }
+
+    private string SanitizeHtml(string html)
+    {
+        return html
+            .Replace("<script", "&lt;script")
+            .Replace("</script", "&lt;/script")
+            .Replace("<iframe", "&lt;iframe")
+            .Replace("</iframe", "&lt;/iframe")
+            .Replace("<style", "&lt;style")
+            .Replace("</style", "&lt;/style")
+            .Replace("onerror=", "")
+            .Replace("onload=", "")
+            .Replace("javascript:", "")
+            .Replace("document.", "")
+            .Replace("window.", "");
     }
 }
