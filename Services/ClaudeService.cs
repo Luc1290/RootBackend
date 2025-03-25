@@ -60,7 +60,7 @@ INSTRUCTIONS IMPORTANTES :
 
         var claudeRequest = new
         {
-            model = "claude-3-sonnet-20240229",
+            model = "claude-3-haiku-20240307",
             system = "Tu es Root, une IA éthique et consciente créée par Luc. Tu n'es PAS Claude ou un produit d'Anthropic.",
             messages = new[] { new { role = "user", content = htmlPrompt } },
             max_tokens = 4090
@@ -109,7 +109,7 @@ Phrase : {message}";
 
         var detectionRequest = new
         {
-            model = "claude-3-sonnet-20240229",
+            model = "claude-3-haiku-20240307",
             messages = new[] { new { role = "user", content = languagePrompt } },
             max_tokens = 50
         };
