@@ -6,7 +6,7 @@ using System.Text.Json;
 var builder = WebApplication.CreateBuilder(args);
 
 var claudeApiKey = builder.Configuration["Claude:ApiKey"];
-var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
+
 
 
 // 🔐 CORS pour ton frontend Fly.io
@@ -14,17 +14,9 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("https://www.rootai.fr")
-              .WithOrigins("https://rootfrontend.fly.dev")
+        policy.WithOrigins("https://www.rootai.fr", "https://rootfrontend.fly.dev")
               .AllowAnyHeader()
               .AllowAnyMethod();
-    });
-
-    options.AddPolicy(MyAllowSpecificOrigins, builder =>
-    {
-        builder.WithOrigins("https://www.rootai.fr")
-            .AllowAnyHeader()
-            .AllowAnyMethod();
     });
 });
 
@@ -84,7 +76,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors(MyAllowSpecificOrigins);
 app.UseRouting();
 app.UseCors("AllowFrontend");
 app.UseAuthorization();
