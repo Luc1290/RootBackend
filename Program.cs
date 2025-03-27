@@ -7,13 +7,13 @@ var builder = WebApplication.CreateBuilder(args);
 
 var claudeApiKey = builder.Configuration["Claude:ApiKey"];
 
-// 🔐 CORS pour ton frontend Railway
+// 🔐 CORS pour ton frontend Fly.io
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
         policy.WithOrigins("https://www.rootai.fr")
-              .WithOrigins("https://rootfrontend-production.up.railway.app")
+              .WithOrigins("https://rootfrontend.fly.dev")
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -36,7 +36,7 @@ if (!string.IsNullOrEmpty(databaseUrl))
         var connectionString =
             $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Require;Trust Server Certificate=true";
 
-        Console.WriteLine($"➡️ Connexion PostgreSQL via Railway: {connectionString}");
+        Console.WriteLine($"➡️ Connexion PostgreSQL via Fly.io: {connectionString}");
 
         builder.Services.AddDbContext<MemoryContext>(options =>
             options.UseNpgsql(connectionString));
