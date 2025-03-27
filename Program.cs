@@ -6,6 +6,8 @@ using System.Text.Json;
 var builder = WebApplication.CreateBuilder(args);
 
 var claudeApiKey = builder.Configuration["Claude:ApiKey"];
+var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
+
 
 // 🔐 CORS pour ton frontend Fly.io
 builder.Services.AddCors(options =>
@@ -16,6 +18,13 @@ builder.Services.AddCors(options =>
               .WithOrigins("https://rootfrontend.fly.dev")
               .AllowAnyHeader()
               .AllowAnyMethod();
+    });
+
+    options.AddPolicy(MyAllowSpecificOrigins, builder =>
+    {
+        builder.WithOrigins("https://www.rootai.fr")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
     });
 });
 
@@ -75,11 +84,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
+app.UseCors(MyAllowSpecificOrigins);
 app.UseRouting();
 app.UseCors("AllowFrontend");
 app.UseAuthorization();
-
 app.MapControllers();
 
 app.MapPost("/api/chat", async (ChatRequest request, ClaudeService claudeService) =>
