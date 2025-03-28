@@ -3,6 +3,7 @@ using RootBackend.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using Sentry;
+using System.Net.NetworkInformation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,37 +30,72 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
     serverOptions.ListenAnyIP(8080);
 });
 
+string? connectionString = null;
+
 // 🔎 Log DATABASE_URL + fallback interne
-var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "rootdb.internal"; // ✅ DNS interne
-var dbPort = Environment.GetEnvironmentVariable("DB_PORT") ?? "5432";
-var dbName = Environment.GetEnvironmentVariable("DB_NAME") ?? "postgres";
-var dbUser = Environment.GetEnvironmentVariable("DB_USER") ?? "postgres";
-var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? "your_default_password"; // Set a default or handle empty case
-var sslMode = Environment.GetEnvironmentVariable("DB_SSL_MODE") ?? "Require"; // Change to Require for consistency
-
-if (string.IsNullOrEmpty(dbPassword))
+var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+if (!string.IsNullOrEmpty(databaseUrl))
 {
-    Console.WriteLine("⚠️ DB_PASSWORD non défini ! Utilisation d'un mot de passe par défaut");
+    Console.WriteLine($"📊 Utilisation de DATABASE_URL pour la connexion PostgreSQL");
+    connectionString = databaseUrl;
 }
+// 2. Sinon, construire à partir des variables individuelles
+else
+{
+    var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "rootdb-new.internal"; // Mise à jour vers la nouvelle DB
+    var dbPort = Environment.GetEnvironmentVariable("DB_PORT") ?? "5432";
+    var dbName = Environment.GetEnvironmentVariable("DB_NAME") ?? "postgres";
+    var dbUser = Environment.GetEnvironmentVariable("DB_USER") ?? "postgres";
+    var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
+    var sslMode = Environment.GetEnvironmentVariable("DB_SSL_MODE") ?? "Require";
 
-string connectionString = $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPassword};SSL Mode={sslMode};Trust Server Certificate=true;";
-Console.WriteLine($"📊 Connexion PostgreSQL → Host={dbHost}, DB={dbName}, SSL={sslMode}");
+    if (string.IsNullOrEmpty(dbPassword))
+    {
+        Console.WriteLine("⚠️ ERREUR: DB_PASSWORD non défini! La connexion à la base de données échouera.");
+    }
+
+    connectionString = $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPassword};SSL Mode={sslMode};Trust Server Certificate=true;Timeout=30;Command Timeout=30;";
+    Console.WriteLine($"📊 Connexion PostgreSQL → Host={dbHost}, DB={dbName}, SSL={sslMode}, Timeout=30s");
+}
 
 builder.Services.AddDbContext<MemoryContext>(options =>
-    options.UseNpgsql(connectionString));
+{
+    options.UseNpgsql(connectionString, npgsqlOptions =>
+    {
+        // Augmenter les timeouts
+        npgsqlOptions.CommandTimeout(30);
 
-// 🎯 Sentry intégré pour prod
-var sentryDsn = builder.Configuration["SENTRY_DSN"];
+        // Configurer la stratégie de retry
+        npgsqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorCodesToAdd: null);
+    });
+});
+
+var sentryDsn = Environment.GetEnvironmentVariable("SENTRY_DSN") ?? builder.Configuration["SENTRY_DSN"];
 if (!string.IsNullOrEmpty(sentryDsn))
 {
-    SentrySdk.Init(o =>
+    try
     {
-        o.Dsn = sentryDsn;
-        o.Debug = true;
-        o.TracesSampleRate = 1.0;
-    });
+        Console.WriteLine($"📡 Initialisation de Sentry avec DSN: {sentryDsn.Substring(0, 10)}...");
+        SentrySdk.Init(o =>
+        {
+            o.Dsn = sentryDsn;
+            o.Debug = true;
+            o.TracesSampleRate = 1.0;
+        });
+        Console.WriteLine("✅ Sentry initialisé avec succès");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"⚠️ Erreur lors de l'initialisation de Sentry: {ex.Message}");
+    }
 }
-
+else
+{
+    Console.WriteLine("ℹ️ Pas de DSN Sentry configuré");
+}
 
 var app = builder.Build();
 
@@ -91,39 +127,6 @@ app.UseRouting();
 app.UseCors("AllowFrontend");
 app.UseAuthorization();
 app.MapControllers();
-
-
-// 🧪 Test de connexion DB
-app.MapGet("/api/db-test", async (IServiceProvider serviceProvider) =>
-{
-    using var scope = serviceProvider.CreateScope();
-    var context = scope.ServiceProvider.GetRequiredService<MemoryContext>();
-
-    try
-    {
-        // Test si la connexion est possible
-        bool canConnect = await context.Database.CanConnectAsync();
-
-        if (canConnect)
-        {
-            return Results.Ok(new { status = "success", message = "Connection à la base de données réussie!" });
-        }
-        else
-        {
-            return Results.BadRequest(new { status = "error", message = "Impossible de se connecter à la base de données" });
-        }
-    }
-    catch (Exception ex)
-    {
-        return Results.BadRequest(new
-        {
-            status = "error",
-            message = ex.Message,
-            details = ex.ToString(),
-            connectionString = connectionString.Replace(dbPassword, "***HIDDEN***") // Masquer le mot de passe
-        });
-    }
-});
 
 // 🔁 Endpoint chatbot (Claude)
 app.MapPost("/api/chat", async (ChatRequest request, ClaudeService claudeService) =>

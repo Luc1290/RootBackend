@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
 using RootBackend.Data;
 
-namespace RootBackend.Data
+namespace RootBackend.Factory
 {
     public class MemoryContextFactory : IDesignTimeDbContextFactory<MemoryContext>
     {
@@ -16,18 +16,45 @@ namespace RootBackend.Data
 
             var optionsBuilder = new DbContextOptionsBuilder<MemoryContext>();
 
-            var host = config["DB_HOST"] ?? "rootdb.internal";
-            var db = config["DB_NAME"] ?? "postgres";
-            var user = config["DB_USER"] ?? "postgres";
-            var password = config["DB_PASSWORD"] ?? "your_default_password"; // Same default as Program.cs
-            var port = config["DB_PORT"] ?? "5432";
-            var ssl = config["DB_SSL_MODE"] ?? "Require"; // Match Program.cs
+            string? connectionString = null;
 
-            var connectionString = $"Host={host};Port={port};Database={db};Username={user};Password={password};SSL Mode={ssl};Trust Server Certificate=true";
+            // Essayer d'abord DATABASE_URL (fourni par fly postgres attach)
+            var databaseUrl = config["DATABASE_URL"];
+            if (!string.IsNullOrEmpty(databaseUrl))
+            {
+                Console.WriteLine($"🏭 Factory: Utilisation de DATABASE_URL pour la connexion PostgreSQL");
+                connectionString = databaseUrl;
+            }
+            // Sinon, construire à partir des variables individuelles
+            else
+            {
+                var host = config["DB_HOST"] ?? "rootdb-new.internal"; // Mise à jour
+                var db = config["DB_NAME"] ?? "postgres";
+                var user = config["DB_USER"] ?? "postgres";
+                var password = config["DB_PASSWORD"];
+                var port = config["DB_PORT"] ?? "5432";
+                var ssl = config["DB_SSL_MODE"] ?? "Require";
 
-            Console.WriteLine($"🏭 Factory: Connexion PostgreSQL → Host={host}, DB={db}, SSL={ssl}");
+                if (string.IsNullOrEmpty(password))
+                {
+                    Console.WriteLine("⚠️ Factory: DB_PASSWORD non défini!");
+                }
 
-            optionsBuilder.UseNpgsql(connectionString);
+                connectionString = $"Host={host};Port={port};Database={db};Username={user};Password={password};SSL Mode={ssl};Trust Server Certificate=true;Timeout=30;Command Timeout=30;";
+                Console.WriteLine($"🏭 Factory: Connexion PostgreSQL → Host={host}, DB={db}, SSL={ssl}, Timeout=30s");
+            }
+
+            optionsBuilder.UseNpgsql(connectionString, npgsqlOptions =>
+            {
+                // Augmenter les timeouts
+                npgsqlOptions.CommandTimeout(30);
+
+                // Configurer la stratégie de retry
+                npgsqlOptions.EnableRetryOnFailure(
+                    maxRetryCount: 5,
+                    maxRetryDelay: TimeSpan.FromSeconds(30),
+                    errorCodesToAdd: null);
+            });
 
             return new MemoryContext(optionsBuilder.Options);
         }
