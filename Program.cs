@@ -32,15 +32,15 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
 
 string? connectionString = null;
 
-// 🔎 Log DATABASE_URL + fallback interne
+// 1. Essayer d'abord DATABASE_URL (fourni par fly postgres attach)
 var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
 if (!string.IsNullOrEmpty(databaseUrl))
 {
     Console.WriteLine($"📊 Utilisation de DATABASE_URL pour la connexion PostgreSQL");
 
-    // Convertir l'URL en chaîne de connexion Npgsql
     try
     {
+        // Parse l'URL de connexion au format postgres://user:password@host:port/database
         var uri = new Uri(databaseUrl);
         var userInfo = uri.UserInfo.Split(':');
         var username = userInfo[0];
@@ -49,20 +49,21 @@ if (!string.IsNullOrEmpty(databaseUrl))
         var port = uri.Port > 0 ? uri.Port : 5432;
         var database = uri.AbsolutePath.TrimStart('/');
 
-        connectionString = $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true;";
+        connectionString = $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true;Timeout=30;Command Timeout=30;";
         Console.WriteLine($"📊 URL convertie en chaîne de connexion Npgsql: Host={host}, DB={database}");
     }
     catch (Exception ex)
     {
         Console.WriteLine($"⚠️ Erreur de conversion DATABASE_URL: {ex.Message}");
-        // Fallback au format standard si la conversion échoue
-        connectionString = null;
+        // Si la conversion échoue, on utilise les variables individuelles
+        databaseUrl = null;
     }
 }
-// 2. Sinon, construire à partir des variables individuelles
-else
+
+// 2. Si DATABASE_URL est invalide ou absent, construire à partir des variables individuelles
+if (string.IsNullOrEmpty(connectionString))
 {
-    var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "rootdb-new.internal"; // Mise à jour vers la nouvelle DB
+    var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "rootdb-new.internal";
     var dbPort = Environment.GetEnvironmentVariable("DB_PORT") ?? "5432";
     var dbName = Environment.GetEnvironmentVariable("DB_NAME") ?? "postgres";
     var dbUser = Environment.GetEnvironmentVariable("DB_USER") ?? "postgres";
@@ -71,13 +72,14 @@ else
 
     if (string.IsNullOrEmpty(dbPassword))
     {
-        Console.WriteLine("⚠️ ERREUR: DB_PASSWORD non défini! La connexion à la base de données échouera.");
+        Console.WriteLine("⚠️ ATTENTION: DB_PASSWORD non défini!");
     }
 
     connectionString = $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPassword};SSL Mode={sslMode};Trust Server Certificate=true;Timeout=30;Command Timeout=30;";
-    Console.WriteLine($"📊 Connexion PostgreSQL → Host={dbHost}, DB={dbName}, SSL={sslMode}, Timeout=30s");
+    Console.WriteLine($"📊 Connexion PostgreSQL via variables individuelles → Host={dbHost}, DB={dbName}, SSL={sslMode}, Timeout=30s");
 }
 
+// 3. Configuration plus robuste pour gérer les problèmes de connexion
 builder.Services.AddDbContext<MemoryContext>(options =>
 {
     options.UseNpgsql(connectionString, npgsqlOptions =>
@@ -92,6 +94,7 @@ builder.Services.AddDbContext<MemoryContext>(options =>
             errorCodesToAdd: null);
     });
 });
+
 
 var sentryDsn = Environment.GetEnvironmentVariable("SENTRY_DSN") ?? builder.Configuration["SENTRY_DSN"];
 if (!string.IsNullOrEmpty(sentryDsn))
@@ -140,7 +143,14 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.UseHttpsRedirection(); // HTTPS Redirection uniquement en développement
 }
+else
+{
+    // En production, on n'utilise pas HTTPS Redirection car Fly.io gère le HTTPS
+    Console.WriteLine("⚠️ Mode Production: HTTPS Redirection désactivée (gérée par Fly.io)");
+}
+
 
 app.UseHttpsRedirection();
 app.UseRouting();
