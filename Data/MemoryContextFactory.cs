@@ -35,7 +35,7 @@ namespace RootBackend.Data
                     var port = uri.Port > 0 ? uri.Port : 5432;
                     var database = uri.AbsolutePath.TrimStart('/');
 
-                    connectionString = $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true;Timeout=30;Command Timeout=30;";
+                    connectionString = $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Disable";
                     Console.WriteLine($"📊 URL convertie en chaîne de connexion Npgsql: Host={host}, DB={database}");
                 }
                 catch (Exception ex)
@@ -54,14 +54,14 @@ namespace RootBackend.Data
                 var dbName = Environment.GetEnvironmentVariable("DB_NAME") ?? "postgres";
                 var dbUser = Environment.GetEnvironmentVariable("DB_USER") ?? "postgres";
                 var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
-                var sslMode = Environment.GetEnvironmentVariable("DB_SSL_MODE") ?? "Require";
+                var sslMode = Environment.GetEnvironmentVariable("DB_SSL_MODE") ?? "Disable";
 
                 if (string.IsNullOrEmpty(dbPassword))
                 {
                     Console.WriteLine("⚠️ ATTENTION: DB_PASSWORD non défini!");
                 }
 
-                connectionString = $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPassword};SSL Mode={sslMode};Trust Server Certificate=true;Timeout=30;Command Timeout=30;";
+                connectionString = $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPassword};SSL Mode=Disable;Timeout=30;Command Timeout=30;";
                 Console.WriteLine($"📊 Connexion PostgreSQL via variables individuelles → Host={dbHost}, DB={dbName}, SSL={sslMode}, Timeout=30s");
             }
 
