@@ -22,26 +22,28 @@ namespace RootBackend.Factory
             var databaseUrl = config["DATABASE_URL"];
             if (!string.IsNullOrEmpty(databaseUrl))
             {
-                Console.WriteLine($"🏭 Factory: Utilisation de DATABASE_URL pour la connexion PostgreSQL");
-                connectionString = databaseUrl;
-            }
-            // Sinon, construire à partir des variables individuelles
-            else
-            {
-                var host = config["DB_HOST"] ?? "rootdb-new.internal"; // Mise à jour
-                var db = config["DB_NAME"] ?? "postgres";
-                var user = config["DB_USER"] ?? "postgres";
-                var password = config["DB_PASSWORD"];
-                var port = config["DB_PORT"] ?? "5432";
-                var ssl = config["DB_SSL_MODE"] ?? "Require";
+                Console.WriteLine($"📊 Utilisation de DATABASE_URL pour la connexion PostgreSQL");
 
-                if (string.IsNullOrEmpty(password))
+                // Convertir l'URL en chaîne de connexion Npgsql
+                try
                 {
-                    Console.WriteLine("⚠️ Factory: DB_PASSWORD non défini!");
-                }
+                    var uri = new Uri(databaseUrl);
+                    var userInfo = uri.UserInfo.Split(':');
+                    var username = userInfo[0];
+                    var password = userInfo.Length > 1 ? userInfo[1] : string.Empty;
+                    var host = uri.Host;
+                    var port = uri.Port > 0 ? uri.Port : 5432;
+                    var database = uri.AbsolutePath.TrimStart('/');
 
-                connectionString = $"Host={host};Port={port};Database={db};Username={user};Password={password};SSL Mode={ssl};Trust Server Certificate=true;Timeout=30;Command Timeout=30;";
-                Console.WriteLine($"🏭 Factory: Connexion PostgreSQL → Host={host}, DB={db}, SSL={ssl}, Timeout=30s");
+                    connectionString = $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true;";
+                    Console.WriteLine($"📊 URL convertie en chaîne de connexion Npgsql: Host={host}, DB={database}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ Erreur de conversion DATABASE_URL: {ex.Message}");
+                    // Fallback au format standard si la conversion échoue
+                    connectionString = null;
+                }
             }
 
             optionsBuilder.UseNpgsql(connectionString, npgsqlOptions =>
