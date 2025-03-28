@@ -34,16 +34,16 @@ var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "rootdb.internal";
 var dbPort = Environment.GetEnvironmentVariable("DB_PORT") ?? "5432";
 var dbName = Environment.GetEnvironmentVariable("DB_NAME") ?? "postgres";
 var dbUser = Environment.GetEnvironmentVariable("DB_USER") ?? "postgres";
-var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
-var sslMode = Environment.GetEnvironmentVariable("DB_SSL_MODE") ?? "Disable";
+var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? "your_default_password"; // Set a default or handle empty case
+var sslMode = Environment.GetEnvironmentVariable("DB_SSL_MODE") ?? "Require"; // Change to Require for consistency
 
 if (string.IsNullOrEmpty(dbPassword))
 {
-    Console.WriteLine("⚠️ DB_PASSWORD non défini !");
+    Console.WriteLine("⚠️ DB_PASSWORD non défini ! Utilisation d'un mot de passe par défaut");
 }
 
-string connectionString = $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPassword};SSL Mode={sslMode};";
-Console.WriteLine($"📊 Connexion PostgreSQL → Host={dbHost}, DB={dbName}");
+string connectionString = $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPassword};SSL Mode={sslMode};Trust Server Certificate=true;";
+Console.WriteLine($"📊 Connexion PostgreSQL → Host={dbHost}, DB={dbName}, SSL={sslMode}");
 
 builder.Services.AddDbContext<MemoryContext>(options =>
     options.UseNpgsql(connectionString));
@@ -91,6 +91,39 @@ app.UseRouting();
 app.UseCors("AllowFrontend");
 app.UseAuthorization();
 app.MapControllers();
+
+
+// 🧪 Test de connexion DB
+app.MapGet("/api/db-test", async (IServiceProvider serviceProvider) =>
+{
+    using var scope = serviceProvider.CreateScope();
+    var context = scope.ServiceProvider.GetRequiredService<MemoryContext>();
+
+    try
+    {
+        // Test si la connexion est possible
+        bool canConnect = await context.Database.CanConnectAsync();
+
+        if (canConnect)
+        {
+            return Results.Ok(new { status = "success", message = "Connection à la base de données réussie!" });
+        }
+        else
+        {
+            return Results.BadRequest(new { status = "error", message = "Impossible de se connecter à la base de données" });
+        }
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new
+        {
+            status = "error",
+            message = ex.Message,
+            details = ex.ToString(),
+            connectionString = connectionString.Replace(dbPassword, "***HIDDEN***") // Masquer le mot de passe
+        });
+    }
+});
 
 // 🔁 Endpoint chatbot (Claude)
 app.MapPost("/api/chat", async (ChatRequest request, ClaudeService claudeService) =>
