@@ -26,43 +26,23 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient<ClaudeService>();
 
 // 🔎 Log DATABASE_URL
-var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "rootdb.internal";
+var dbPort = Environment.GetEnvironmentVariable("DB_PORT") ?? "5432";
+var dbName = Environment.GetEnvironmentVariable("DB_NAME") ?? "postgres";
+var dbUser = Environment.GetEnvironmentVariable("DB_USER") ?? "postgres";
+var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD");
+var sslMode = Environment.GetEnvironmentVariable("DB_SSL_MODE") ?? "Disable";
 
-if (!string.IsNullOrEmpty(databaseUrl))
+if (string.IsNullOrEmpty(dbPassword))
 {
-    try
-    {
-        var uri = new Uri(databaseUrl);
-
-        var userInfo = uri.UserInfo.Split(':');
-        var username = userInfo[0];
-        var password = userInfo[1];
-        var host = uri.Host;
-        var port = uri.Port;
-        var database = uri.AbsolutePath.TrimStart('/');
-
-        // Utiliser un nom de base de données par défaut si vide
-        if (string.IsNullOrEmpty(database))
-        {
-            database = "postgres"; // Base de données par défaut dans PostgreSQL
-            Console.WriteLine($"⚠️ Nom de base de données manquant, utilisation de '{database}' par défaut");
-        }
-
-        var sslmode = uri.Query.Contains("sslmode=Disable") ? "Disable" : "Require";
-
-        var connectionString = $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode={sslmode};Trust Server Certificate=true";
-
-        Console.WriteLine($"➡️ Connexion PostgreSQL: {connectionString}");
-
-        builder.Services.AddDbContext<MemoryContext>(options =>
-            options.UseNpgsql(connectionString));
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine("❌ Erreur parsing DATABASE_URL: " + ex.Message);
-    }
+    Console.WriteLine("⚠️ Attention: DB_PASSWORD n'est pas défini, la connexion risque d'échouer");
 }
 
+string connectionString = $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPassword};SSL Mode={sslMode};";
+Console.WriteLine($"📊 Tentative de connexion PostgreSQL avec Host={dbHost} et Database={dbName}");
+
+builder.Services.AddDbContext<MemoryContext>(options =>
+    options.UseNpgsql(connectionString));
 
 var app = builder.Build();
 
