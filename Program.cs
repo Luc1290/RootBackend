@@ -49,12 +49,17 @@ builder.Services.AddDbContext<MemoryContext>(options =>
     options.UseNpgsql(connectionString));
 
 // 🎯 Sentry intégré pour prod
-builder.WebHost.UseSentry(o =>
+var sentryDsn = builder.Configuration["SENTRY_DSN"];
+if (!string.IsNullOrEmpty(sentryDsn))
 {
-    o.Dsn = Environment.GetEnvironmentVariable("SENTRY_DSN");
-    o.TracesSampleRate = 1.0;
-    o.Environment = "production";
-});
+    SentrySdk.Init(o =>
+    {
+        o.Dsn = sentryDsn;
+        o.Debug = true;
+        o.TracesSampleRate = 1.0;
+    });
+}
+
 
 var app = builder.Build();
 
