@@ -39,18 +39,18 @@ namespace RootBackend.Controllers
 
         // GET: api/messages
         [HttpGet]
-        public async Task<IActionResult> GetMessages([FromHeader(Name = "X-Admin-Token")] string? adminToken)
+        public async Task<IActionResult> GetMessages([FromHeader(Name = "ADMIN_API_TOKEN")] string? adminToken)
         {
             try
             {
-                // 🔐 Vérifie le token admin
+                // Notez que j'ai modifié X-Admin-Token en ADMIN_API_TOKEN pour correspondre à votre frontend
                 var expectedToken = Environment.GetEnvironmentVariable("ADMIN_API_TOKEN");
+
                 if (string.IsNullOrEmpty(adminToken) || adminToken != expectedToken)
                 {
-                    return Forbid("🚫 Accès refusé : Token invalide !");
+                    return StatusCode(401, new { error = "Accès refusé : Token invalide !" });
                 }
 
-                // ✅ Si le token est bon, retourne les messages
                 var messages = await _context.Messages.ToListAsync();
                 return Ok(messages);
             }

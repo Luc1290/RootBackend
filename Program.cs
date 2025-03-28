@@ -14,12 +14,12 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("https://www.rootai.fr", "https://rootfrontend.fly.dev")
+        policy.WithOrigins("https://www.rootai.fr", "https://rootfrontend.fly.dev", "http://localhost:61583")
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials(); // Ajoutez cette ligne
     });
 });
-
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -41,11 +41,18 @@ if (!string.IsNullOrEmpty(databaseUrl))
         var port = uri.Port;
         var database = uri.AbsolutePath.TrimStart('/');
 
+        // Utiliser un nom de base de données par défaut si vide
+        if (string.IsNullOrEmpty(database))
+        {
+            database = "postgres"; // Base de données par défaut dans PostgreSQL
+            Console.WriteLine($"⚠️ Nom de base de données manquant, utilisation de '{database}' par défaut");
+        }
+
         var sslmode = uri.Query.Contains("sslmode=Disable") ? "Disable" : "Require";
 
         var connectionString = $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode={sslmode};Trust Server Certificate=true";
 
-        Console.WriteLine($"➡️ Connexion PostgreSQL via Fly.io (parsed): {connectionString}");
+        Console.WriteLine($"➡️ Connexion PostgreSQL: {connectionString}");
 
         builder.Services.AddDbContext<MemoryContext>(options =>
             options.UseNpgsql(connectionString));
@@ -55,19 +62,28 @@ if (!string.IsNullOrEmpty(databaseUrl))
         Console.WriteLine("❌ Erreur parsing DATABASE_URL: " + ex.Message);
     }
 }
-else
-{
-    Console.WriteLine("⚠️ Pas de DATABASE_URL trouvé, fallback sur appsettings");
-
-    builder.Services.AddDbContext<MemoryContext>(options =>
-        options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-}
-
-
-
 
 
 var app = builder.Build();
+
+// Appliquer les migrations au démarrage
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        Console.WriteLine("🔄 Application des migrations de base de données...");
+        var context = services.GetRequiredService<MemoryContext>();
+        context.Database.Migrate();
+        Console.WriteLine("✅ Migrations appliquées avec succès");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"❌ ERREUR lors des migrations: {ex.Message}");
+        // En environnement de développement, on pourrait vouloir re-throw l'exception
+        // mais en production, mieux vaut logger et continuer
+    }
+}
 
 if (app.Environment.IsDevelopment())
 {
