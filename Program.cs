@@ -44,6 +44,14 @@ Console.WriteLine($"📊 Tentative de connexion PostgreSQL avec Host={dbHost} et
 builder.Services.AddDbContext<MemoryContext>(options =>
     options.UseNpgsql(connectionString));
 
+builder.WebHost.UseSentry(o =>
+{
+    o.Dsn = Environment.GetEnvironmentVariable("SENTRY_DSN");
+    o.TracesSampleRate = 1.0;
+    o.Debug = true; // à désactiver plus tard en prod
+});
+
+
 var app = builder.Build();
 
 // Appliquer les migrations au démarrage
