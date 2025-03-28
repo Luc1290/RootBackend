@@ -29,8 +29,8 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
     serverOptions.ListenAnyIP(8080);
 });
 
-// 🔎 Log DATABASE_URL + valeurs par défaut
-var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "rootdb.flycast"; // ✅ PAR DÉFAUT = flycast
+// 🔎 Log DATABASE_URL + fallback interne
+var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "rootdb.internal"; // ✅ DNS interne
 var dbPort = Environment.GetEnvironmentVariable("DB_PORT") ?? "5432";
 var dbName = Environment.GetEnvironmentVariable("DB_NAME") ?? "postgres";
 var dbUser = Environment.GetEnvironmentVariable("DB_USER") ?? "postgres";
@@ -48,7 +48,7 @@ Console.WriteLine($"📊 Connexion PostgreSQL → Host={dbHost}, DB={dbName}");
 builder.Services.AddDbContext<MemoryContext>(options =>
     options.UseNpgsql(connectionString));
 
-// 🎯 Sentry (prod-ready)
+// 🎯 Sentry intégré pour prod
 builder.WebHost.UseSentry(o =>
 {
     o.Dsn = Environment.GetEnvironmentVariable("SENTRY_DSN");
@@ -58,7 +58,7 @@ builder.WebHost.UseSentry(o =>
 
 var app = builder.Build();
 
-// 📦 Appliquer les migrations
+// 📦 Migrations automatiques
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -87,7 +87,7 @@ app.UseCors("AllowFrontend");
 app.UseAuthorization();
 app.MapControllers();
 
-// 🔁 Endpoint /api/chat (Claude)
+// 🔁 Endpoint chatbot (Claude)
 app.MapPost("/api/chat", async (ChatRequest request, ClaudeService claudeService) =>
 {
     var reply = await claudeService.GetCompletionAsync(request.Message);
