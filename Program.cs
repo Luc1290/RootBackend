@@ -2,12 +2,9 @@
 using RootBackend.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using Sentry;
 
 var builder = WebApplication.CreateBuilder(args);
-
-var claudeApiKey = builder.Configuration["Claude:ApiKey"];
-
-
 
 // 🔐 CORS pour ton frontend Fly.io
 builder.Services.AddCors(options =>
@@ -17,16 +14,23 @@ builder.Services.AddCors(options =>
         policy.WithOrigins("https://www.rootai.fr", "https://rootfrontend.fly.dev", "http://localhost:61583")
               .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowCredentials(); // Ajoutez cette ligne
+              .AllowCredentials();
     });
 });
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient<ClaudeService>();
 
-// 🔎 Log DATABASE_URL
-var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "rootdb.internal";
+// 🌍 Écoute sur 0.0.0.0:8080 pour Fly.io
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.ListenAnyIP(8080);
+});
+
+// 🔎 Log DATABASE_URL + valeurs par défaut
+var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "rootdb.flycast"; // ✅ PAR DÉFAUT = flycast
 var dbPort = Environment.GetEnvironmentVariable("DB_PORT") ?? "5432";
 var dbName = Environment.GetEnvironmentVariable("DB_NAME") ?? "postgres";
 var dbUser = Environment.GetEnvironmentVariable("DB_USER") ?? "postgres";
@@ -35,41 +39,39 @@ var sslMode = Environment.GetEnvironmentVariable("DB_SSL_MODE") ?? "Disable";
 
 if (string.IsNullOrEmpty(dbPassword))
 {
-    Console.WriteLine("⚠️ Attention: DB_PASSWORD n'est pas défini, la connexion risque d'échouer");
+    Console.WriteLine("⚠️ DB_PASSWORD non défini !");
 }
 
 string connectionString = $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUser};Password={dbPassword};SSL Mode={sslMode};";
-Console.WriteLine($"📊 Tentative de connexion PostgreSQL avec Host={dbHost} et Database={dbName}");
+Console.WriteLine($"📊 Connexion PostgreSQL → Host={dbHost}, DB={dbName}");
 
 builder.Services.AddDbContext<MemoryContext>(options =>
     options.UseNpgsql(connectionString));
 
+// 🎯 Sentry (prod-ready)
 builder.WebHost.UseSentry(o =>
 {
     o.Dsn = Environment.GetEnvironmentVariable("SENTRY_DSN");
     o.TracesSampleRate = 1.0;
-    o.Debug = true; // à désactiver plus tard en prod
+    o.Environment = "production";
 });
-
 
 var app = builder.Build();
 
-// Appliquer les migrations au démarrage
+// 📦 Appliquer les migrations
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     try
     {
-        Console.WriteLine("🔄 Application des migrations de base de données...");
+        Console.WriteLine("🔄 Migrations en cours...");
         var context = services.GetRequiredService<MemoryContext>();
         context.Database.Migrate();
-        Console.WriteLine("✅ Migrations appliquées avec succès");
+        Console.WriteLine("✅ Migrations OK !");
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"❌ ERREUR lors des migrations: {ex.Message}");
-        // En environnement de développement, on pourrait vouloir re-throw l'exception
-        // mais en production, mieux vaut logger et continuer
+        Console.WriteLine($"❌ ERREUR MIGRATION : {ex.Message}");
     }
 }
 
@@ -85,6 +87,7 @@ app.UseCors("AllowFrontend");
 app.UseAuthorization();
 app.MapControllers();
 
+// 🔁 Endpoint /api/chat (Claude)
 app.MapPost("/api/chat", async (ChatRequest request, ClaudeService claudeService) =>
 {
     var reply = await claudeService.GetCompletionAsync(request.Message);
