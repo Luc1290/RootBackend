@@ -2,6 +2,7 @@
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
+using RootBackend.Core;
 
 namespace RootBackend.Services;
 
@@ -27,14 +28,16 @@ public class GroqService
     public async Task<string> GetCompletionAsync(string message)
     {
         var model = _configuration["Groq:Model"] ?? "mistral-saba-24b";
+        var systemPrompt = RootIdentity.GetSystemPrompt();
+        var fullPrompt = RootIdentity.BuildPrompt(message);
 
         var requestBody = new
         {
-            model = model,
+            model,
             messages = new[]
             {
-                new { role = "system", content = "Tu es Root, un assistant curieux, motivant et discret. Tu ne te présentes jamais comme un assistant IA ou une création." },
-                new { role = "user", content = message }
+                new { role = "system", content = systemPrompt },
+                new { role = "user", content = fullPrompt }
             },
             temperature = 0.7,
             max_tokens = 1024
@@ -43,7 +46,6 @@ public class GroqService
         var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
         var response = await _httpClient.PostAsync("chat/completions", content);
-
         var responseContent = await response.Content.ReadAsStringAsync();
 
         if (!response.IsSuccessStatusCode)
