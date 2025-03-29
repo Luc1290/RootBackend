@@ -58,5 +58,24 @@ namespace RootBackend.Controllers
                 return StatusCode(500, new { error = ex.Message });
             }
         }
+
+        // Verify admin token pour le frontend
+        [HttpPost("/api/verify-admin")]
+        public IActionResult VerifyAdmin([FromBody] AdminAuthRequest request)
+        {
+            var expectedToken = Environment.GetEnvironmentVariable("ADMIN_API_TOKEN");
+
+            if (request.Password == expectedToken)
+                return Ok(new { success = true });
+
+            return Unauthorized(new { success = false });
+        }
+
+        public class AdminAuthRequest
+        {
+            public required string Password { get; set; }
+        }
+
+
     }
 }
