@@ -22,7 +22,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddHttpClient<ClaudeService>();
+builder.Services.AddHttpClient<GroqService>();
 
 // DB
 builder.WebHost.ConfigureKestrel(serverOptions =>
@@ -74,9 +74,9 @@ app.UseAuthorization();
 app.MapControllers();
 
 // Endpoints
-app.MapPost("/api/chat", async (ChatRequest request, ClaudeService claudeService) =>
+app.MapPost("/api/chat", async (ChatRequest request, GroqService groqService) =>
 {
-    var reply = await claudeService.GetCompletionAsync(request.Message);
+    var reply = await groqService.GetCompletionAsync(request.Message);
     return Results.Json(new { reply });
 });
 
