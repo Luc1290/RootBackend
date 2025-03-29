@@ -26,7 +26,7 @@ public class GroqService
 
     public async Task<string> GetCompletionAsync(string message)
     {
-        var model = _configuration["Groq:Model"] ?? "mixtral-8x7b-32768";
+        var model = _configuration["Groq:Model"] ?? "mistral-saba-24b";
 
         var requestBody = new
         {
