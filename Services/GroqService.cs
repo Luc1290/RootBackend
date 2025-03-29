@@ -40,7 +40,7 @@ public class GroqService
                 new { role = "user", content = fullPrompt }
             },
             temperature = 0.7,
-            max_tokens = 1024
+            max_tokens = 32000
         };
 
         var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
