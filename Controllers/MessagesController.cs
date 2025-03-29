@@ -36,14 +36,12 @@ namespace RootBackend.Controllers
             }
         }
 
-
         // GET: api/messages
         [HttpGet]
         public async Task<IActionResult> GetMessages([FromHeader(Name = "ADMIN_API_TOKEN")] string? adminToken)
         {
             try
             {
-                // Notez que j'ai modifié X-Admin-Token en ADMIN_API_TOKEN pour correspondre à votre frontend
                 var expectedToken = Environment.GetEnvironmentVariable("ADMIN_API_TOKEN");
 
                 if (string.IsNullOrEmpty(adminToken) || adminToken != expectedToken)
@@ -60,6 +58,5 @@ namespace RootBackend.Controllers
                 return StatusCode(500, new { error = ex.Message });
             }
         }
-
     }
 }

@@ -7,6 +7,6 @@ namespace RootBackend.Data
     {
         public MemoryContext(DbContextOptions<MemoryContext> options) : base(options) { }
 
-        public DbSet<MessageLog> Messages => Set<MessageLog>();
+        public DbSet<MessageLog> Messages { get; set; }
     }
 }
