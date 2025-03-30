@@ -28,7 +28,6 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient<GroqService>();
 builder.Services.AddHttpClient<GeocodingClient>();
 builder.Services.AddHttpClient<OpenMeteoClient>();
-builder.Services.AddScoped<IRootSkill, WeatherSkill>();
 builder.Services.AddSingleton<GeocodingClient>();
 builder.Services.AddSingleton<OpenMeteoClient>();
 builder.Services.AddSingleton<WeatherExplorer>();
