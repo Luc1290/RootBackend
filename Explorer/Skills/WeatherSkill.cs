@@ -25,39 +25,39 @@ namespace RootBackend.Explorer.Skills
             return msg.Contains("meteo") || msg.Contains("quel temps") || msg.Contains("temperature") || msg.Contains("il fait combien") || msg.Contains("temps qu'il fait");
         }
 
+        // Remplacer la méthode HandleAsync dans WeatherSkill.cs
         public async Task<string?> HandleAsync(string message)
         {
             // 🔠 Mode sans faute : nettoyer le message utilisateur
             message = RemoveDiacritics(message).ToLowerInvariant();
 
-            // Détection robuste du nom de ville à la fin de la question météo
-            var match = Regex.Match(message, @"(?:\b(?:meteo|quel temps(?: fait[- ]il)?|temperature|il fait combien|temps qu'il fait)\b.*?(?:a|à|pour)\s+)?([a-zà-ÿ\-']{3,}(?:\s+[a-zà-ÿ\-']+)*)$", RegexOptions.IgnoreCase);
-            if (!match.Success)
+            // Utiliser Groq pour extraire le nom de la ville
+            var city = await _saba.ExtractEntityAsync(message, "nom de ville");
+
+            if (string.IsNullOrWhiteSpace(city))
             {
                 Console.WriteLine("❌ Aucune ville détectée dans le message.");
-                return "Je n’ai pas bien compris de quelle ville tu parles. Tu peux reformuler avec le nom d’une ville ?";
+                return "Je n'ai pas bien compris de quelle ville tu parles. Tu peux reformuler avec le nom d'une ville ?";
             }
 
-            var city = match.Groups[1].Value.Trim();
             Console.WriteLine($"🌍 Demande météo pour ville : {city}");
 
             var weather = await _explorer.ExploreWeatherAsync(city);
             if (weather == null)
             {
-                Console.WriteLine($"❌ Ville non trouvée par l’API : {city}");
-                return $"Je n’ai pas réussi à trouver la météo pour **{city}**. Vérifie l’orthographe ou essaie une grande ville.";
+                Console.WriteLine($"❌ Ville non trouvée par l'API : {city}");
+                return $"Je n'ai pas réussi à trouver la météo pour **{city}**. Vérifie l'orthographe ou essaie une grande ville.";
             }
 
-            // Conseil météo selon température
+            // Le reste du code reste inchangé
             string conseil = weather.Temperature switch
             {
                 <= 5 => "🥶 Il fait très froid, pense à bien te couvrir !",
                 <= 15 => "🧥 Un pull ou une veste sera parfait.",
                 <= 25 => "😎 Une température agréable pour sortir.",
-                _ => "🥵 Il fait bien chaud, pense à t’hydrater et à rester au frais."
+                _ => "🥵 Il fait bien chaud, pense à t'hydrater et à rester au frais."
             };
 
-            // Reformulation des conditions météo
             string condition = weather.Condition.ToLower();
             string description = condition switch
             {
@@ -71,17 +71,17 @@ namespace RootBackend.Explorer.Skills
             };
 
             return $"""
-            🌍 **Ville** : {weather.City}
-            🌡️ **Température** : {weather.Temperature}°C
-            💨 **Vent** : {weather.WindSpeed} km/h
-            📋 **Conditions** : {weather.Condition}
+    🌍 **Ville** : {weather.City}
+    🌡️ **Température** : {weather.Temperature}°C
+    💨 **Vent** : {weather.WindSpeed} km/h
+    📋 **Conditions** : {weather.Condition}
 
-            {description}
+    {description}
 
-            🔎 {conseil}
+    🔎 {conseil}
 
-            👉 Si tu veux plus d'infos, n'hésite pas à demander la météo d'une autre ville ou un conseil vestimentaire !
-            """;
+    👉 Si tu veux plus d'infos, n'hésite pas à demander la météo d'une autre ville ou un conseil vestimentaire !
+    """;
         }
 
         private static string RemoveDiacritics(string text)
