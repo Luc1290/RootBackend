@@ -1,4 +1,6 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Globalization;
+using System.Text;
+using System.Text.RegularExpressions;
 using RootBackend.Explorer.Models;
 using RootBackend.Explorer.Services;
 using RootBackend.Explorer.Skills;
@@ -19,18 +21,18 @@ namespace RootBackend.Explorer.Skills
 
         public bool CanHandle(string message)
         {
-            var msg = message.ToLower();
-            return msg.Contains("météo") ||
-                   msg.Contains("temps qu'il fait") ||
-                   msg.Contains("il fait combien") ||
-                   msg.Contains("température") ||
-                   msg.Contains("quel temps");
+            var msg = RemoveDiacritics(message).ToLowerInvariant();
+            return msg.Contains("meteo") || msg.Contains("quel temps") || msg.Contains("temperature");
         }
+
 
         public async Task<string?> HandleAsync(string message)
         {
+            // 🔠 Mode sans faute : nettoyer le message utilisateur
+            message = RemoveDiacritics(message).ToLowerInvariant();
+
             // Détection souple du nom de ville
-            var match = Regex.Match(message, @"(?:à|pour)?\s*([A-ZÂ-ÿ][a-zà-ÿ\-']{2,}(?:\s+[A-ZÂ-ÿ]?[a-zà-ÿ\-']+)*)", RegexOptions.IgnoreCase);
+            var match = Regex.Match(message, @"(?:meteo\s*(?:a|à|pour)?\s*)?([a-zà-ÿ\-']{3,}(?:\s+[a-zà-ÿ\-']+)*)", RegexOptions.IgnoreCase);
             if (!match.Success)
             {
                 Console.WriteLine("❌ Aucune ville détectée dans le message.");
@@ -76,6 +78,11 @@ namespace RootBackend.Explorer.Skills
             """;
         }
 
-
+        private static string RemoveDiacritics(string text)
+        {
+            var normalized = text.Normalize(NormalizationForm.FormD);
+            var chars = normalized.Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark);
+            return new string(chars.ToArray()).Normalize(NormalizationForm.FormC);
+        }
     }
 }
