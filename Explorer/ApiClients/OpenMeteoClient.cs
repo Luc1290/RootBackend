@@ -72,10 +72,11 @@ namespace RootBackend.Explorer.ApiClients
             };
 
             // Ajouter les prévisions si disponibles
-            if (includeForecast && result.Daily != null)
+            if (includeForecast && result?.Daily != null)
             {
                 weatherResult.Forecasts = ParseDailyForecasts(result.Daily);
             }
+
 
             return weatherResult;
         }

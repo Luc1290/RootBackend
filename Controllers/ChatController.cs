@@ -2,8 +2,6 @@
 using RootBackend.Explorer.Skills;
 using RootBackend.Services;
 using RootBackend.Explorer.Models;
-using RootBackend.Data;
-using RootBackend.Models;
 
 namespace RootBackend.Controllers
 {
@@ -13,13 +11,13 @@ namespace RootBackend.Controllers
     {
         private readonly IEnumerable<IRootSkill> _skills;
         private readonly GroqService _saba;
-        private readonly MemoryContext _context;
+        private readonly MessageService _messageService;
 
-        public ChatController(IEnumerable<IRootSkill> skills, GroqService saba, MemoryContext context)
+        public ChatController(IEnumerable<IRootSkill> skills, GroqService saba, MessageService messageService)
         {
             _skills = skills;
             _saba = saba;
-            _context = context;
+            _messageService = messageService;
         }
 
         public class ChatRequest
@@ -33,21 +31,7 @@ namespace RootBackend.Controllers
             var message = request.Message;
 
             // Sauvegarde du message de l'utilisateur
-            var userMessageLog = new MessageLog
-            {
-                Id = Guid.NewGuid(),
-                Content = message,
-                Sender = "user",
-                Timestamp = DateTime.UtcNow,
-                Type = "text",
-                Source = "chat"
-            };
-
-            _context.Messages.Add(userMessageLog);
-            await _context.SaveChangesAsync();
-
-            string response;
-            string source;
+            await _messageService.SaveUserMessageAsync(message, "chat");
 
             // 🔍 1. Interception par un skill
             foreach (var skill in _skills)
@@ -55,25 +39,13 @@ namespace RootBackend.Controllers
                 Console.WriteLine("🔍 Skill testé : " + skill.GetType().Name);
                 if (skill.CanHandle(message))
                 {
-                    response = await skill.HandleAsync(message);
+                    var response = await skill.HandleAsync(message);
                     if (!string.IsNullOrWhiteSpace(response))
                     {
                         Console.WriteLine("✅ Réponse d'un skill : " + response);
-                        source = "skill";
 
                         // Sauvegarde de la réponse du skill
-                        var skillMessageLog = new MessageLog
-                        {
-                            Id = Guid.NewGuid(),
-                            Content = response,
-                            Sender = "bot",
-                            Timestamp = DateTime.UtcNow,
-                            Type = "text",
-                            Source = source
-                        };
-
-                        _context.Messages.Add(skillMessageLog);
-                        await _context.SaveChangesAsync();
+                        await _messageService.SaveBotMessageAsync(response, "skill");
 
                         return Ok(new { reply = response });
                     }
@@ -83,25 +55,13 @@ namespace RootBackend.Controllers
             // 🤖 2. Sinon, envoi à Saba (Groq)
             try
             {
-                response = await _saba.GetCompletionAsync(message);
-                source = "ai";
-                Console.WriteLine("🤖 Réponse de Saba : " + response);
+                var fullResponse = await _saba.GetCompletionAsync(message);
+                Console.WriteLine("🤖 Réponse de Saba : " + fullResponse);
 
                 // Sauvegarde de la réponse de l'IA
-                var aiMessageLog = new MessageLog
-                {
-                    Id = Guid.NewGuid(),
-                    Content = response,
-                    Sender = "bot",
-                    Timestamp = DateTime.UtcNow,
-                    Type = "text",
-                    Source = source
-                };
+                await _messageService.SaveBotMessageAsync(fullResponse, "ai");
 
-                _context.Messages.Add(aiMessageLog);
-                await _context.SaveChangesAsync();
-
-                return Ok(new { reply = response });
+                return Ok(new { reply = fullResponse });
             }
             catch (Exception ex)
             {

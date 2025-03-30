@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using RootBackend.Utils;
-using Sentry;
 using RootBackend.Explorer.ApiClients;
 using RootBackend.Explorer.Services;
 using RootBackend.Explorer.Skills;
@@ -36,8 +35,7 @@ builder.Services.AddSingleton<IRootSkill, WeatherSkill>();
 builder.Services.AddSingleton<ConversationSkill>();
 builder.Services.AddSingleton<IRootSkill, ConversationSkill>();
 builder.Services.AddSingleton<GroqService>();
-
-
+builder.Services.AddScoped<MessageService>();
 
 // DB
 builder.WebHost.ConfigureKestrel(serverOptions =>
@@ -54,17 +52,6 @@ builder.Services.AddDbContext<MemoryContext>(options =>
     });
 });
 
-// Sentry
-var sentryDsn = Environment.GetEnvironmentVariable("SENTRY_DSN") ?? builder.Configuration["SENTRY_DSN"];
-if (!string.IsNullOrEmpty(sentryDsn))
-{
-    SentrySdk.Init(o =>
-    {
-        o.Dsn = sentryDsn;
-        o.Debug = true;
-        o.TracesSampleRate = 1.0;
-    });
-}
 
 var app = builder.Build();
 
@@ -76,7 +63,6 @@ using (var scope = app.Services.CreateScope())
     {
         context.Database.Migrate();
     }
-
 }
 
 // Middleware
