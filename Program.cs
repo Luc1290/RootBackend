@@ -30,7 +30,7 @@ builder.Services.AddHttpClient<GeocodingClient>();
 builder.Services.AddHttpClient<OpenMeteoClient>();
 builder.Services.AddScoped<WeatherExplorer>();
 builder.Services.AddScoped<IRootSkill, WeatherSkill>();
-
+builder.Services.AddScoped<WeatherSkill>();
 
 // DB
 builder.WebHost.ConfigureKestrel(serverOptions =>
