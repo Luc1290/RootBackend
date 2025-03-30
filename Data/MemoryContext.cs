@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using Explorer.Models;
+using RootBackend.Models;
 
-namespace Explorer.Data
+namespace RootBackend.Data
 {
     public class MemoryContext : DbContext
     {

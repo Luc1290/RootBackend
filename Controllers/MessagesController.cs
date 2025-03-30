@@ -1,7 +1,11 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Explorer.Data;
-using Explorer.Models;
+﻿using Explorer.Data;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RootBackend.Data;
+using RootBackend.Explorer.Skills;
+using RootBackend.Models;
+using RootBackend.Services;
+
 
 namespace RootBackend.Controllers
 {
@@ -10,72 +14,71 @@ namespace RootBackend.Controllers
     public class MessagesController : ControllerBase
     {
         private readonly MemoryContext _context;
+        private readonly GroqService _groq;
+        private readonly WeatherSkill _weatherSkill;
 
-        public MessagesController(MemoryContext context)
+        public MessagesController(MemoryContext context, GroqService groq, WeatherSkill weatherSkill)
         {
             _context = context;
+            _groq = groq;
+            _weatherSkill = weatherSkill;
         }
 
-        // POST: api/messages
-        [HttpPost]
-        public async Task<IActionResult> PostMessage([FromBody] MessageLog message)
-        {
-            try
-            {
-                if (!ModelState.IsValid)
-                    return BadRequest(ModelState);
-
-                _context.Messages.Add(message);
-                await _context.SaveChangesAsync();
-                return Ok(message);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("❌ ERREUR MESSAGE DB : " + ex.Message);
-                return StatusCode(500, new { error = ex.Message });
-            }
-        }
-
-        // GET: api/messages
         [HttpGet]
-        public async Task<IActionResult> GetMessages([FromHeader(Name = "ADMIN_API_TOKEN")] string? adminToken)
+        public async Task<ActionResult<IEnumerable<MessageLog>>> GetMessages()
         {
-            try
-            {
-                var expectedToken = Environment.GetEnvironmentVariable("ADMIN_API_TOKEN");
+            return await _context.Messages
+                .OrderByDescending(m => m.Timestamp)
+                .Take(50)
+                .ToListAsync();
+        }
 
-                if (string.IsNullOrEmpty(adminToken) || adminToken != expectedToken)
+        [HttpPost]
+        public async Task<ActionResult<MessageLog>> PostMessage(MessageLog message)
+        {
+            message.Id = Guid.NewGuid();
+            message.Timestamp = DateTime.UtcNow;
+            _context.Messages.Add(message);
+            await _context.SaveChangesAsync();
+
+            // === [1] Vérifier si une skill peut répondre ===
+            var skillResponse = await _weatherSkill.HandleAsync(message.Content);
+
+            if (!string.IsNullOrWhiteSpace(skillResponse))
+            {
+                var reply = new MessageLog
                 {
-                    return StatusCode(401, new { error = "Accès refusé : Token invalide !" });
-                }
+                    Id = Guid.NewGuid(),
+                    Content = skillResponse,
+                    Sender = "bot",
+                    Timestamp = DateTime.UtcNow,
+                    Type = "text",
+                    Source = "skill"
+                };
 
-                var messages = await _context.Messages.ToListAsync();
-                return Ok(messages);
+                _context.Messages.Add(reply);
+                await _context.SaveChangesAsync();
+
+                return Ok(reply);
             }
-            catch (Exception ex)
+
+            // === [2] Sinon on continue avec l'IA ===
+            var aiReply = await _groq.GetCompletionAsync(message.Content);
+
+            var response = new MessageLog
             {
-                Console.WriteLine("❌ ERREUR GET MESSAGES : " + ex.Message);
-                return StatusCode(500, new { error = ex.Message });
-            }
+                Id = Guid.NewGuid(),
+                Content = aiReply,
+                Sender = "bot",
+                Timestamp = DateTime.UtcNow,
+                Type = "text",
+                Source = "ai"
+            };
+
+            _context.Messages.Add(response);
+            await _context.SaveChangesAsync();
+
+            return Ok(response);
         }
-
-        // Verify admin token pour le frontend
-        [HttpPost("/api/verify-admin")]
-        public IActionResult VerifyAdmin([FromBody] AdminAuthRequest request)
-        {
-            var expectedToken = Environment.GetEnvironmentVariable("ADMIN_API_TOKEN");
-
-            if (request.Password == expectedToken)
-                return Ok(new { success = true });
-
-            return Unauthorized(new { success = false });
-        }
-
-        public class AdminAuthRequest
-        {
-            public required string Password { get; set; }
-        }
-
-
     }
 }

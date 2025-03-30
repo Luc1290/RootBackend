@@ -6,6 +6,7 @@ using RootBackend.Explorer.ApiClients;
 using RootBackend.Explorer.Services;
 using RootBackend.Explorer.Skills;
 using RootBackend.Services;
+using RootBackend.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
