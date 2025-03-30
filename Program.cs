@@ -5,6 +5,9 @@ using RootBackend.Explorer.Services;
 using RootBackend.Explorer.Skills;
 using RootBackend.Services;
 using RootBackend.Data;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.Google;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -52,6 +55,33 @@ builder.Services.AddDbContext<MemoryContext>(options =>
     });
 });
 
+// Add the missing builder.Services.AddAuthentication() call
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
+})
+.AddCookie(options =>
+{
+    options.Cookie.SecurePolicy = CookieSecurePolicy.None; // ← important pour le dev HTTP
+})
+.AddGoogle(options =>
+{
+    var clientId = builder.Configuration["Authentication:Google:ClientId"];
+    var clientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+
+    if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret))
+    {
+        throw new InvalidOperationException("Google ClientId and ClientSecret must be provided.");
+    }
+
+    options.ClientId = clientId;
+    options.ClientSecret = clientSecret;
+    options.CallbackPath = "/api/auth/google-callback";
+});
+
+
 
 var app = builder.Build();
 
@@ -75,6 +105,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseRouting();
 app.UseCors("AllowFrontend");
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
