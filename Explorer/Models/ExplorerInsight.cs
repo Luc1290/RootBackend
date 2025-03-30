@@ -1,4 +1,4 @@
-/*namespace Explorer.Models
+namespace RootBackend.Explorer.Models
 {
     public class ExplorerInsight
     {
@@ -10,4 +10,3 @@
         public List<string>? Sources { get; set; }
     }
 }
-*/
