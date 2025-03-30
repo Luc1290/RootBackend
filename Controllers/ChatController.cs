@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using RootBackend.Explorer.Skills;
 using RootBackend.Services;
-using RootBackend.Explorer.Models
+using RootBackend.Explorer.Models;
 
 namespace RootBackend.Controllers
 {
