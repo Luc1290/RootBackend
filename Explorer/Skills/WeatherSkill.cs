@@ -29,19 +29,32 @@ namespace RootBackend.Explorer.Skills
 
         public async Task<string?> HandleAsync(string message)
         {
-            var match = Regex.Match(message, @"à\s+([a-zA-ZÀ-ÿ\- ]+)");
+            // Essaye de détecter un nom de ville avec ou sans "à"
+            var match = Regex.Match(message, @"(?:à|pour)?\s*([a-zA-ZÀ-ÿ\-']{3,})", RegexOptions.IgnoreCase);
             if (!match.Success) return null;
 
             var city = match.Groups[1].Value.Trim();
             Console.WriteLine($"Demande météo pour ville: {city}");
 
+
             var weather = await _explorer.ExploreWeatherAsync(city);
-
             if (weather == null)
-                return $"Je ne trouve pas la météo pour {city}.";
+                return $"🤷 Je ne trouve pas la météo pour {city}.";
 
-            // Retourner directement la réponse formatée sans passer par Groq
-            return $"À {weather.City}, il fait actuellement {weather.Temperature}°C avec un vent de {weather.WindSpeed} km/h. {weather.Condition}";
+            // Crée un prompt pour Groq en injectant les vraies données météo
+            var prompt = $"""
+Tu es une IA météo qui répond avec empathie et style.
+Voici les infos réelles que j’ai trouvées pour {weather.City} :
+- Température : {weather.Temperature}°C
+- Vent : {weather.WindSpeed} km/h
+- Conditions : {weather.Condition}
+
+Rédige une réponse naturelle, en Markdown, avec des emojis. Ajoute un petit conseil météo adapté à la température.
+""";
+
+            var styledReply = await _saba.GetCompletionAsync(prompt);
+            return styledReply;
         }
+
     }
 }
