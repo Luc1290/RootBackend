@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 using RootBackend.Explorer.Models;
 using RootBackend.Explorer.Services;
 using RootBackend.Explorer.Skills;
-using RootBackend.Services; // Pour GroqService
+using RootBackend.Services;
 
 namespace RootBackend.Explorer.Skills
 {
@@ -22,17 +22,16 @@ namespace RootBackend.Explorer.Skills
         public bool CanHandle(string message)
         {
             var msg = RemoveDiacritics(message).ToLowerInvariant();
-            return msg.Contains("meteo") || msg.Contains("quel temps") || msg.Contains("temperature");
+            return msg.Contains("meteo") || msg.Contains("quel temps") || msg.Contains("temperature") || msg.Contains("il fait combien") || msg.Contains("temps qu'il fait");
         }
-
 
         public async Task<string?> HandleAsync(string message)
         {
             // 🔠 Mode sans faute : nettoyer le message utilisateur
             message = RemoveDiacritics(message).ToLowerInvariant();
 
-            // Détection souple du nom de ville
-            var match = Regex.Match(message, @"(?:meteo\s*(?:a|à|pour)?\s*)?([a-zà-ÿ\-']{3,}(?:\s+[a-zà-ÿ\-']+)*)", RegexOptions.IgnoreCase);
+            // Détection robuste du nom de ville à la fin de la question météo
+            var match = Regex.Match(message, @"(?:\b(?:meteo|quel temps(?: fait[- ]il)?|temperature|il fait combien|temps qu'il fait)\b.*?(?:a|à|pour)\s+)?([a-zà-ÿ\-']{3,}(?:\s+[a-zà-ÿ\-']+)*)$", RegexOptions.IgnoreCase);
             if (!match.Success)
             {
                 Console.WriteLine("❌ Aucune ville détectée dans le message.");
@@ -72,9 +71,16 @@ namespace RootBackend.Explorer.Skills
             };
 
             return $"""
-            À **{weather.City}**, il fait actuellement **{weather.Temperature}°C**, avec un vent de **{weather.WindSpeed} km/h**.  
-            {description}.  
-            {conseil}
+            🌍 **Ville** : {weather.City}
+            🌡️ **Température** : {weather.Temperature}°C
+            💨 **Vent** : {weather.WindSpeed} km/h
+            📋 **Conditions** : {weather.Condition}
+
+            {description}
+
+            🔎 {conseil}
+
+            👉 Si tu veux plus d'infos, n'hésite pas à demander la météo d'une autre ville ou un conseil vestimentaire !
             """;
         }
 
