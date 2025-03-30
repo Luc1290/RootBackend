@@ -35,6 +35,7 @@ builder.Services.AddSingleton<WeatherSkill>();
 builder.Services.AddSingleton<IRootSkill, WeatherSkill>();
 builder.Services.AddSingleton<ConversationSkill>();
 builder.Services.AddSingleton<IRootSkill, ConversationSkill>();
+builder.Services.AddSingleton<GroqService>();
 
 
 
