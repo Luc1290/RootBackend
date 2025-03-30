@@ -1,5 +1,4 @@
-﻿using Explorer.Data;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RootBackend.Data;
 using RootBackend.Explorer.Skills;

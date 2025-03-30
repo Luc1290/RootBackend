@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Explorer.Migrations
+namespace RootBackend.Migrations
 {
     /// <inheritdoc />
     public partial class InitialMemorySchema : Migration
