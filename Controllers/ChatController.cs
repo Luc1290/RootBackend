@@ -36,7 +36,7 @@ namespace RootBackend.Controllers
                     if (!string.IsNullOrWhiteSpace(response))
                     {
                         Console.WriteLine("✅ Réponse d’un skill : " + response);
-                        return Ok(new { response });
+                        return Ok(new { reply = response });
                     }
                 }
             }
