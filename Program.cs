@@ -87,13 +87,6 @@ app.UseCors("AllowFrontend");
 app.UseAuthorization();
 app.MapControllers();
 
-// Endpoints
-app.MapPost("/api/chat", async (ChatRequest request, GroqService groqService) =>
-{
-    var reply = await groqService.GetCompletionAsync(request.Message);
-    return Results.Json(new { reply });
-});
-
 app.MapGet("/health", () => Results.Ok("Healthy"));
 
 app.Run();
