@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using RootBackend.Explorer.Skills;
 using RootBackend.Services;
-using RootBackend.Explorer.Models;
+using RootBackend.Explorer.Models
 
 namespace RootBackend.Controllers
 {
@@ -47,7 +47,7 @@ namespace RootBackend.Controllers
             {
                 var fullResponse = await _saba.GetCompletionAsync(message);
                 Console.WriteLine("🤖 Réponse de Saba : " + fullResponse);
-                return Ok(new { response = fullResponse });
+                return Ok(new { reply = fullResponse });
             }
             catch (Exception ex)
             {
