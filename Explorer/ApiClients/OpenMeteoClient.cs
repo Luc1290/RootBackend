@@ -2,6 +2,8 @@
 using System.Text.Json;
 using System.Threading.Tasks;
 using RootBackend.Explorer.Models;
+using RootBackend.Explorer.Helpers;
+
 
 namespace RootBackend.Explorer.ApiClients
 {
@@ -43,7 +45,6 @@ namespace RootBackend.Explorer.ApiClients
 
             var result = JsonSerializer.Deserialize<WeatherApiResponse>(json, options);
 
-
             var weather = result?.Current_weather;
             if (weather == null)
             {
@@ -51,13 +52,17 @@ namespace RootBackend.Explorer.ApiClients
                 return null;
             }
 
+            // ✨ Convertit le weathercode en condition lisible
+            var conditionText = WeatherConditionHelper.GetConditionDescription(weather.Weathercode);
+
             return new WeatherResult
             {
                 City = city,
                 Temperature = weather.Temperature,
                 WindSpeed = weather.Windspeed,
-                Condition = $"Il fait {weather.Temperature}°C avec un vent de {weather.Windspeed} km/h."
+                Condition = conditionText
             };
+
         }
 
 
@@ -70,6 +75,8 @@ namespace RootBackend.Explorer.ApiClients
         {
             public double Temperature { get; set; }
             public double Windspeed { get; set; }
+            public int Weathercode { get; set; } // <-- 👈 Ajouté ici
         }
+
     }
 }

@@ -29,40 +29,53 @@ namespace RootBackend.Explorer.Skills
 
         public async Task<string?> HandleAsync(string message)
         {
-            // Essaye de détecter un nom de ville avec ou sans "à"
-            var match = Regex.Match(message, @"(?:à|pour)?\s*([a-zA-ZÀ-ÿ\-']{3,})", RegexOptions.IgnoreCase);
-            if (!match.Success) return null;
+            // Détection souple du nom de ville
+            var match = Regex.Match(message, @"(?:à|pour)?\s*([A-ZÂ-ÿ][a-zà-ÿ\-']{2,}(?:\s+[A-ZÂ-ÿ]?[a-zà-ÿ\-']+)*)", RegexOptions.IgnoreCase);
+            if (!match.Success)
+            {
+                Console.WriteLine("❌ Aucune ville détectée dans le message.");
+                return "Je n’ai pas bien compris de quelle ville tu parles. Tu peux reformuler avec le nom d’une ville ?";
+            }
 
             var city = match.Groups[1].Value.Trim();
-            Console.WriteLine($"Demande météo pour ville: {city}");
-
+            Console.WriteLine($"🌍 Demande météo pour ville : {city}");
 
             var weather = await _explorer.ExploreWeatherAsync(city);
             if (weather == null)
-                return $"🤷 Je ne trouve pas la météo pour {city}.";
+            {
+                Console.WriteLine($"❌ Ville non trouvée par l’API : {city}");
+                return $"Je n’ai pas réussi à trouver la météo pour **{city}**. Vérifie l’orthographe ou essaie une grande ville.";
+            }
 
-            // Crée un prompt pour Groq en injectant les vraies données météo
-            // Crée un prompt pour Groq en injectant les vraies données météo
-            var prompt = $"""
-                Tu es une IA météo. Les données suivantes sont **réelles** et doivent être **reprises telles quelles** :
+            // Conseil météo selon température
+            string conseil = weather.Temperature switch
+            {
+                <= 5 => "🥶 Il fait très froid, pense à bien te couvrir !",
+                <= 15 => "🧥 Un pull ou une veste sera parfait.",
+                <= 25 => "😎 Une température agréable pour sortir.",
+                _ => "🥵 Il fait bien chaud, pense à t’hydrater et à rester au frais."
+            };
 
-                Ville : {weather.City}  
-                Température : {weather.Temperature}°C  
-                Vent : {weather.WindSpeed} km/h  
-                Conditions : {weather.Condition}
+            // Reformulation des conditions météo
+            string condition = weather.Condition.ToLower();
+            string description = condition switch
+            {
+                var c when c.Contains("ensoleillé") || c.Contains("dégagé") => "Le ciel est parfaitement dégagé ☀️",
+                var c when c.Contains("nuageux") => "Le ciel est partiellement couvert ☁️",
+                var c when c.Contains("pluie") || c.Contains("averses") => "Il pleut actuellement 🌧️",
+                var c when c.Contains("orage") => "Des orages sont en cours ⚡",
+                var c when c.Contains("neige") => "La neige tombe sur la ville ❄️",
+                var c when c.Contains("brouillard") => "Un brouillard épais limite la visibilité 🌫️",
+                _ => $"Conditions actuelles : *{weather.Condition}*"
+            };
 
-                Ta mission :
-                    - Génère un **paragraphe fluide et agréable**, en Markdown, avec emojis
-                    - **N’invente jamais** d’autres chiffres ou conditions
-                    - Donne un **petit conseil météo** selon la température
-
-                Sois précis, clair et utile. La météo compte sur toi !
-                """;
-
-
-            var styledReply = await _saba.GetCompletionAsync(prompt);
-            return styledReply;
+            return $"""
+            À **{weather.City}**, il fait actuellement **{weather.Temperature}°C**, avec un vent de **{weather.WindSpeed} km/h**.  
+            {description}.  
+            {conseil}
+            """;
         }
+
 
     }
 }
