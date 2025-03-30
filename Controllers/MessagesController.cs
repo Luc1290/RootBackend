@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using RootBackend.Data;
-using RootBackend.Models;
+using Explorer.Data;
+using Explorer.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace RootBackend.Controllers

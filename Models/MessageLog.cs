@@ -1,7 +1,7 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 
-namespace RootBackend.Models
+namespace Explorer.Models
 {
     public class MessageLog
     {

@@ -4,11 +4,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using RootBackend.Data;
+using Explorer.Data;
 
 #nullable disable
 
-namespace RootBackend.Migrations
+namespace Explorer.Migrations
 {
     [DbContext(typeof(MemoryContext))]
     partial class MemoryContextModelSnapshot : ModelSnapshot

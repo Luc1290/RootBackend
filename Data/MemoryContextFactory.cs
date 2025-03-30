@@ -1,8 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using RootBackend.Utils;
+using Explorer.Utils;
 
-namespace RootBackend.Data
+namespace Explorer.Data
 {
     public class MemoryContextFactory : IDesignTimeDbContextFactory<MemoryContext>
     {

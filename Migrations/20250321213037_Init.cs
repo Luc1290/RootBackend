@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace RootBackend.Migrations
+namespace Explorer.Migrations
 {
     /// <inheritdoc />
     public partial class Init : Migration

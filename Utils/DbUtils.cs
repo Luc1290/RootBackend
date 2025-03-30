@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace RootBackend.Utils
+namespace Explorer.Utils
 {
     public static class DbUtils
     {

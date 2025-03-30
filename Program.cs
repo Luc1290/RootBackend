@@ -1,8 +1,11 @@
-﻿using RootBackend.Data;
-using RootBackend.Services;
+﻿using Explorer.Data;
 using Microsoft.EntityFrameworkCore;
-using RootBackend.Utils;
+using Explorer.Utils;
 using Sentry;
+using RootBackend.Explorer.ApiClients;
+using RootBackend.Explorer.Services;
+using RootBackend.Explorer.Skills;
+using RootBackend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +26,11 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient<GroqService>();
+builder.Services.AddHttpClient<GeocodingClient>();
+builder.Services.AddHttpClient<OpenMeteoClient>();
+builder.Services.AddScoped<WeatherExplorer>();
+builder.Services.AddScoped<IRootSkill, WeatherSkill>();
+
 
 // DB
 builder.WebHost.ConfigureKestrel(serverOptions =>
@@ -57,7 +65,11 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<MemoryContext>();
-    context.Database.Migrate();
+    if (!app.Environment.IsDevelopment())
+    {
+        context.Database.Migrate();
+    }
+
 }
 
 // Middleware
