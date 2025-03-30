@@ -42,15 +42,23 @@ namespace RootBackend.Explorer.Skills
                 return $"🤷 Je ne trouve pas la météo pour {city}.";
 
             // Crée un prompt pour Groq en injectant les vraies données météo
+            // Crée un prompt pour Groq en injectant les vraies données météo
             var prompt = $"""
-Tu es une IA météo qui répond avec empathie et style.
-Voici les infos réelles que j’ai trouvées pour {weather.City} :
-- Température : {weather.Temperature}°C
-- Vent : {weather.WindSpeed} km/h
-- Conditions : {weather.Condition}
+                Tu es une IA météo. Les données suivantes sont **réelles** et doivent être **reprises telles quelles** :
 
-Rédige une réponse naturelle, en Markdown, avec des emojis. Ajoute un petit conseil météo adapté à la température.
-""";
+                Ville : {weather.City}  
+                Température : {weather.Temperature}°C  
+                Vent : {weather.WindSpeed} km/h  
+                Conditions : {weather.Condition}
+
+                Ta mission :
+                    - Génère un **paragraphe fluide et agréable**, en Markdown, avec emojis
+                    - **N’invente jamais** d’autres chiffres ou conditions
+                    - Donne un **petit conseil météo** selon la température
+
+                Sois précis, clair et utile. La météo compte sur toi !
+                """;
+
 
             var styledReply = await _saba.GetCompletionAsync(prompt);
             return styledReply;
