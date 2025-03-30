@@ -22,10 +22,18 @@ namespace RootBackend.Explorer.Skills
         public bool CanHandle(string message)
         {
             var msg = RemoveDiacritics(message).ToLowerInvariant();
-            return msg.Contains("meteo") || msg.Contains("quel temps") || msg.Contains("temperature") || msg.Contains("il fait combien") || msg.Contains("temps qu'il fait");
+            return msg.Contains("meteo") ||
+                   msg.Contains("quel temps") ||
+                   msg.Contains("temperature") ||
+                   msg.Contains("il fait combien") ||
+                   msg.Contains("temps qu'il fait") ||
+                   msg.Contains("prevision") ||
+                   msg.Contains("jours") ||
+                   msg.Contains("semaine") ||
+                   msg.Contains("prochains jours") ||
+                   msg.Contains("demain");
         }
 
-        // Remplacer la méthode HandleAsync dans WeatherSkill.cs
         public async Task<string?> HandleAsync(string message)
         {
             // 🔠 Mode sans faute : nettoyer le message utilisateur
@@ -42,14 +50,23 @@ namespace RootBackend.Explorer.Skills
 
             Console.WriteLine($"🌍 Demande météo pour ville : {city}");
 
-            var weather = await _explorer.ExploreWeatherAsync(city);
+            // Toujours inclure les prévisions
+            var weather = await _explorer.ExploreWeatherAsync(city, true);
             if (weather == null)
             {
                 Console.WriteLine($"❌ Ville non trouvée par l'API : {city}");
                 return $"Je n'ai pas réussi à trouver la météo pour **{city}**. Vérifie l'orthographe ou essaie une grande ville.";
             }
 
-            // Le reste du code reste inchangé
+            // Toujours afficher la météo actuelle + prévisions
+            return FormatCompleteWeatherResponse(weather);
+        }
+
+        private string FormatCompleteWeatherResponse(WeatherResult weather)
+        {
+            var sb = new StringBuilder();
+
+            // Conseil selon la température actuelle
             string conseil = weather.Temperature switch
             {
                 <= 5 => "🥶 Il fait très froid, pense à bien te couvrir !",
@@ -58,6 +75,7 @@ namespace RootBackend.Explorer.Skills
                 _ => "🥵 Il fait bien chaud, pense à t'hydrater et à rester au frais."
             };
 
+            // Description des conditions actuelles
             string condition = weather.Condition.ToLower();
             string description = condition switch
             {
@@ -70,18 +88,49 @@ namespace RootBackend.Explorer.Skills
                 _ => $"Conditions actuelles : *{weather.Condition}*"
             };
 
-            return $"""
-    🌍 **Ville** : {weather.City}
-    🌡️ **Température** : {weather.Temperature}°C
-    💨 **Vent** : {weather.WindSpeed} km/h
-    📋 **Conditions** : {weather.Condition}
+            // Météo actuelle
+            sb.AppendLine($"🌍 **Ville** : {weather.City}");
+            sb.AppendLine($"🌡️ **Température** : {weather.Temperature}°C");
+            sb.AppendLine($"💨 **Vent** : {weather.WindSpeed} km/h");
+            sb.AppendLine($"📋 **Conditions** : {weather.Condition}");
+            sb.AppendLine();
+            sb.AppendLine(description);
+            sb.AppendLine();
+            sb.AppendLine($"🔎 {conseil}");
+            sb.AppendLine();
 
-    {description}
+            // Prévisions pour les prochains jours (si disponibles)
+            if (weather.Forecasts != null && weather.Forecasts.Count > 0)
+            {
+                sb.AppendLine($"📅 **Prévisions pour les prochains jours** :");
 
-    🔎 {conseil}
+                foreach (var forecast in weather.Forecasts.Take(7)) // Limiter à 7 jours
+                {
+                    string dayName = forecast.Date.ToString("dddd", new CultureInfo("fr-FR"));
+                    dayName = char.ToUpper(dayName[0]) + dayName.Substring(1); // Première lettre en majuscule
 
-    👉 Si tu veux plus d'infos, n'hésite pas à demander la météo d'une autre ville ou un conseil vestimentaire !
-    """;
+                    string emoji = forecast.Condition.ToLower() switch
+                    {
+                        var c when c.Contains("ensoleillé") || c.Contains("dégagé") => "☀️",
+                        var c when c.Contains("nuageux") => "☁️",
+                        var c when c.Contains("pluie") || c.Contains("averses") => "🌧️",
+                        var c when c.Contains("orage") => "⚡",
+                        var c when c.Contains("neige") => "❄️",
+                        var c when c.Contains("brouillard") => "🌫️",
+                        _ => "🌤️"
+                    };
+
+                    sb.AppendLine($"- **{dayName} {forecast.Date:dd/MM}** {emoji} : {forecast.MinTemperature}°C à {forecast.MaxTemperature}°C, {forecast.Condition}");
+                    if (forecast.PrecipitationProbability > 0)
+                    {
+                        sb.AppendLine($"  💧 Probabilité de précipitations : {forecast.PrecipitationProbability}%");
+                    }
+                }
+            }
+
+            sb.AppendLine("\n👉 Si tu veux plus d'infos, n'hésite pas à demander la météo d'une autre ville ou un conseil vestimentaire !");
+
+            return sb.ToString();
         }
 
         private static string RemoveDiacritics(string text)

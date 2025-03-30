@@ -15,14 +15,19 @@ namespace RootBackend.Explorer.Services
             _meteoClient = meteoClient;
         }
 
-        public async Task<WeatherResult?> ExploreWeatherAsync(string city)
+        public async Task<WeatherResult?> ExploreWeatherAsync(string city, bool includeForecast = false)
         {
             var location = await _geoClient.GetCoordinatesAsync(city);
             if (location == null) return null;
 
             Console.WriteLine($"Demande de météo pour {location.Name} ({location.Latitude}, {location.Longitude})");
 
-            var weather = await _meteoClient.GetCurrentWeatherAsync(location.Latitude, location.Longitude, location.Name);
+            var weather = await _meteoClient.GetCurrentWeatherAsync(
+                location.Latitude,
+                location.Longitude,
+                location.Name,
+                includeForecast);
+
             return weather;
         }
     }
