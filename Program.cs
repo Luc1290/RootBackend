@@ -32,6 +32,8 @@ builder.Services.AddSingleton<GeocodingClient>();
 builder.Services.AddSingleton<OpenMeteoClient>();
 builder.Services.AddSingleton<WeatherExplorer>();
 builder.Services.AddSingleton<WeatherSkill>();
+builder.Services.AddSingleton<IRootSkill, WeatherSkill>();
+
 
 
 // DB

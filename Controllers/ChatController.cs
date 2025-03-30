@@ -31,6 +31,7 @@ namespace RootBackend.Controllers
             // 🔍 1. Interception par un skill
             foreach (var skill in _skills)
             {
+                Console.WriteLine("🔍 Skill testé : " + skill.GetType().Name);
                 if (skill.CanHandle(message))
                 {
                     var response = await skill.HandleAsync(message);
