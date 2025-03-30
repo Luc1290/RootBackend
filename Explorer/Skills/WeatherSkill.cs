@@ -29,52 +29,19 @@ namespace RootBackend.Explorer.Skills
 
         public async Task<string?> HandleAsync(string message)
         {
-            // Plusieurs patterns pour trouver la ville
-            var patterns = new[]
-            {
-        @"à\s+([a-zA-ZÀ-ÿ\- ]+)",          // "à Paris"
-        @"de\s+([a-zA-ZÀ-ÿ\- ]+)",         // "de Paris" 
-        @"pour\s+([a-zA-ZÀ-ÿ\- ]+)",       // "pour Paris"
-        @"dans\s+([a-zA-ZÀ-ÿ\- ]+)",       // "dans Paris"
-        @"météo\s+(?:à|de|pour)?\s*([a-zA-ZÀ-ÿ\- ]+)" // "météo Paris"
-    };
+            var match = Regex.Match(message, @"à\s+([a-zA-ZÀ-ÿ\- ]+)");
+            if (!match.Success) return null;
 
-            string? city = null;
-            foreach (var pattern in patterns)
-            {
-                var match = Regex.Match(message, pattern);
-                if (match.Success)
-                {
-                    city = match.Groups[1].Value.Trim();
-                    break;
-                }
-            }
-
-            // Si aucun pattern ne trouve la ville, extrayez le dernier mot (peut être la ville)
-            if (city == null)
-            {
-                var words = message.Split(new[] { ' ', ',', '.' }, StringSplitOptions.RemoveEmptyEntries);
-                if (words.Length > 0)
-                {
-                    city = words[words.Length - 1].Trim();
-                }
-            }
-
-            // Si toujours pas de ville, informez l'utilisateur
-            if (string.IsNullOrWhiteSpace(city))
-            {
-                return "Je comprends que vous voulez connaître la météo, mais de quelle ville ?";
-            }
-
-            Console.WriteLine($"Demande de météo détectée pour la ville: {city}");
+            var city = match.Groups[1].Value.Trim();
+            Console.WriteLine($"Demande météo pour ville: {city}");
 
             var weather = await _explorer.ExploreWeatherAsync(city);
 
             if (weather == null)
-                return $"Je ne trouve pas la météo pour {city}. Pourriez-vous préciser le nom de la ville ?";
+                return $"Je ne trouve pas la météo pour {city}.";
 
-            // Retourner directement la réponse sans passer par Groq pour reformuler
-            return $"À {weather.City}, il fait actuellement {weather.Temperature}°C avec un vent de {weather.WindSpeed} km/h.";
+            // Retourner directement la réponse formatée sans passer par Groq
+            return $"À {weather.City}, il fait actuellement {weather.Temperature}°C avec un vent de {weather.WindSpeed} km/h. {weather.Condition}";
         }
     }
 }
