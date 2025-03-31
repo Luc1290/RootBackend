@@ -7,6 +7,7 @@ using RootBackend.Services;
 using RootBackend.Data;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.HttpOverrides;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -55,7 +56,7 @@ builder.Services.AddDbContext<MemoryContext>(options =>
     });
 });
 
-// Add the missing builder.Services.AddAuthentication() call
+// Auth
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
@@ -67,7 +68,6 @@ builder.Services.AddAuthentication(options =>
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 });
 
-// Active Google uniquement en prod (ou si on a bien les secrets)
 if (builder.Environment.IsProduction() ||
     (!string.IsNullOrEmpty(builder.Configuration["Authentication:Google:ClientId"]) &&
      !string.IsNullOrEmpty(builder.Configuration["Authentication:Google:ClientSecret"])))
@@ -97,6 +97,12 @@ if (builder.Environment.IsProduction() ||
 }
 
 var app = builder.Build();
+
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedProto
+});
+
 
 // Migrations
 using (var scope = app.Services.CreateScope())
