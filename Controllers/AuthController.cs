@@ -25,8 +25,10 @@ namespace RootBackend.Controllers
         [HttpGet("google-callback")]
         public async Task<IActionResult> GoogleCallback()
         {
-            var result = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
+            Console.WriteLine("Callback called!");
+            var result = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            Console.WriteLine($"Authentication result: {result.Succeeded}");
             if (!result.Succeeded)
                 return Unauthorized();
 

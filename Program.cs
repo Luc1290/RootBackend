@@ -85,6 +85,7 @@ builder.Services.AddAuthentication(options =>
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
     options.Cookie.SameSite = SameSiteMode.None;
     options.Cookie.HttpOnly = true;
+    options.Cookie.Domain = ".rootai.fr";
 });
 
 if (builder.Environment.IsProduction() ||
@@ -129,6 +130,7 @@ if (builder.Environment.IsProduction() ||
             options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
             options.CorrelationCookie.SameSite = SameSiteMode.None;
             options.CorrelationCookie.HttpOnly = true;
+            options.CorrelationCookie.Domain = ".rootai.fr";
         }
     });
 }
