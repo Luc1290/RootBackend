@@ -10,7 +10,9 @@ using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.CookiePolicy;
 using System.Web;
-
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.OAuth;
+using Microsoft.AspNetCore.HttpsPolicy;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,9 +24,15 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
-    options.ForwardedHeaders = ForwardedHeaders.XForwardedProto;
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedHost;
     options.KnownNetworks.Clear();
     options.KnownProxies.Clear();
+});
+
+// Configurer les options HTTPS
+builder.Services.Configure<HttpsRedirectionOptions>(options =>
+{
+    options.HttpsPort = 443; // Port standard HTTPS
 });
 
 // 🟢 CORS
@@ -44,6 +52,7 @@ builder.Services.AddCors(options =>
             .AllowCredentials();
     });
 });
+
 // 🛠️ Services
 builder.Services.AddControllers();
 builder.Services.Configure<CookiePolicyOptions>(options =>
@@ -90,9 +99,8 @@ builder.Services.AddAuthentication(options =>
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
     options.Cookie.SameSite = SameSiteMode.None;
     options.Cookie.HttpOnly = true;
-
-    // Définir explicitement le chemin du cookie
     options.Cookie.Path = "/";
+    options.Cookie.Domain = null; // Utilise le domaine actuel
 
     // Configurer pour gérer les erreurs d'authentification
     options.Events.OnRedirectToAccessDenied = context =>
@@ -124,9 +132,23 @@ if (builder.Environment.IsProduction() ||
 
         options.ClientId = clientId;
         options.ClientSecret = clientSecret;
-
-        // Spécifier l'URL complète ici
         options.CallbackPath = "/api/auth/google-callback";
+
+        // Configurer les événements OAuth pour forcer HTTPS
+        options.Events = new OAuthEvents
+        {
+            OnRedirectToAuthorizationEndpoint = context =>
+            {
+                // Assurer que l'URL utilise HTTPS
+                var redirectUri = new UriBuilder(context.RedirectUri)
+                {
+                    Scheme = "https"
+                }.Uri.ToString();
+
+                context.Response.Redirect(redirectUri);
+                return Task.CompletedTask;
+            }
+        };
 
         if (builder.Environment.IsProduction())
         {
@@ -140,43 +162,18 @@ if (builder.Environment.IsProduction() ||
 
 var app = builder.Build();
 
-// 🧪 Ajoute le header CORS manuellement si jamais ça bloque
-app.Use(async (context, next) =>
-{
-    context.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
-    await next();
-});
-
-
-// 🔐 Appliquer les options de cookies SameSite
-app.UseCookiePolicy();
-
-// 🛠️ DB Migration
-using (var scope = app.Services.CreateScope())
-{
-    var context = scope.ServiceProvider.GetRequiredService<MemoryContext>();
-    if (!app.Environment.IsDevelopment())
-    {
-        context.Database.Migrate();
-    }
-}
-
-// 📜 Swagger
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
-// Placer ForwardedHeaders AVANT HttpsRedirection
+// Placer ForwardedHeaders AVANT tout le reste
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedHost
 });
 
-// Configurer la redirection HTTPS manuellement si nécessaire
+// Forcer le schéma HTTPS dans les URLs générées
 app.Use(async (context, next) =>
 {
+    context.Request.Scheme = "https";
+
+    // Si la requête arrive en HTTP, rediriger vers HTTPS
     if (context.Request.Headers.TryGetValue("X-Forwarded-Proto", out var proto) &&
         proto == "http")
     {
@@ -188,7 +185,36 @@ app.Use(async (context, next) =>
     await next();
 });
 
-app.UseHttpsRedirection();
+// Ajouter le header CORS manuellement 
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
+    await next();
+});
+
+// Appliquer les options de cookies SameSite
+app.UseCookiePolicy();
+
+// DB Migration
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<MemoryContext>();
+    if (!app.Environment.IsDevelopment())
+    {
+        context.Database.Migrate();
+    }
+}
+
+// Swagger
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+// Ne pas utiliser HttpsRedirection car nous le gérons manuellement
+// app.UseHttpsRedirection();
+
 app.UseRouting();
 app.UseCors("AllowFrontend");
 app.UseAuthentication();

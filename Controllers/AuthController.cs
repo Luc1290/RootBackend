@@ -12,13 +12,11 @@ namespace RootBackend.Controllers
         [HttpGet("google-login")]
         public IActionResult GoogleLogin()
         {
-            // Utilisez exactement cette URL pour correspondre à ce que Google reçoit
+            // Utiliser explicitement HTTPS
             var callbackUrl = "https://api.rootai.fr/api/auth/google-callback";
+            Console.WriteLine($"Redirection vers Google avec callback: {callbackUrl}");
 
-            var properties = new AuthenticationProperties
-            {
-                RedirectUri = callbackUrl
-            };
+            var properties = new AuthenticationProperties { RedirectUri = callbackUrl };
             return Challenge(properties, GoogleDefaults.AuthenticationScheme);
         }
 
