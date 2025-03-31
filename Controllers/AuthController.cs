@@ -12,27 +12,10 @@ namespace RootBackend.Controllers
         [HttpGet("google-login")]
         public IActionResult GoogleLogin()
         {
-            // Créer un état unique pour cette requête
-            var state = Guid.NewGuid().ToString();
-
-            // Stocker cet état dans le cookie temporairement
-            Response.Cookies.Append("GoogleOAuthState", state, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.None,
-                MaxAge = TimeSpan.FromMinutes(15)
-            });
-
-            // Utiliser l'URL HTTPS
-            var callbackUrl = "https://api.rootai.fr/api/auth/google-callback";
-            Console.WriteLine($"Redirection vers Google avec callback: {callbackUrl}");
-
+            // Pas de gestion d'état manuelle
             var properties = new AuthenticationProperties
             {
-                RedirectUri = callbackUrl,
-                // Utiliser l'état généré
-                Items = { { ".xsrf", state } }
+                RedirectUri = "https://api.rootai.fr/api/auth/google-callback"
             };
 
             return Challenge(properties, GoogleDefaults.AuthenticationScheme);
