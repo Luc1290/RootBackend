@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.CookiePolicy;
+using System.Web;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -82,6 +84,7 @@ builder.Services.AddAuthentication(options =>
 {
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
     options.Cookie.SameSite = SameSiteMode.None;
+    options.Cookie.HttpOnly = true;
 });
 
 if (builder.Environment.IsProduction() ||
@@ -98,10 +101,28 @@ if (builder.Environment.IsProduction() ||
         {
             throw new InvalidOperationException("Google ClientId and ClientSecret must be provided.");
         }
+        options.Events.OnRedirectToAuthorizationEndpoint = context =>
+        {
+            var uriBuilder = new UriBuilder(context.RedirectUri);
+            var query = System.Web.HttpUtility.ParseQueryString(uriBuilder.Query);
+
+            query["access_type"] = "offline";
+            query["prompt"] = "consent";
+
+            uriBuilder.Query = query.ToString();
+            context.Response.Redirect(uriBuilder.ToString());
+
+            return Task.CompletedTask;
+        };
 
         options.ClientId = clientId;
         options.ClientSecret = clientSecret;
         options.CallbackPath = "/api/auth/google-callback";
+
+        options.Scope.Add("openid");
+        options.Scope.Add("profile");
+        options.Scope.Add("email");
+
 
         if (builder.Environment.IsProduction())
         {

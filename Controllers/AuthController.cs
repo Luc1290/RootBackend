@@ -12,10 +12,15 @@ namespace RootBackend.Controllers
         [HttpGet("google-login")]
         public IActionResult GoogleLogin()
         {
-            var redirectUrl = Url.Action("GoogleCallback", "Auth");
-            var properties = new AuthenticationProperties { RedirectUri = redirectUrl };
+            var properties = new AuthenticationProperties
+            {
+                RedirectUri = "https://api.rootai.fr/api/auth/google-callback"
+            };
+
             return Challenge(properties, GoogleDefaults.AuthenticationScheme);
         }
+
+
 
         [HttpGet("google-callback")]
         public async Task<IActionResult> GoogleCallback()
