@@ -12,7 +12,9 @@ namespace RootBackend.Controllers
         [HttpGet("google-login")]
         public IActionResult GoogleLogin()
         {
-            var callbackUrl = $"https://{Request.Host}/api/auth/google-callback";
+            // Utiliser le domaine principal au lieu de api.rootai.fr
+            var callbackUrl = "https://www.rootai.fr/api/auth/google-callback";
+
             Console.WriteLine($"Redirection vers Google avec callback: {callbackUrl}");
 
             var properties = new AuthenticationProperties

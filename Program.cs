@@ -32,13 +32,18 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("https://www.rootai.fr", "https://rootai.fr", "https://rootfrontend.fly.dev", "http://localhost:61583")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+        policy.WithOrigins(
+                "https://www.rootai.fr",
+                "https://rootai.fr",
+                "https://api.rootai.fr",
+                "https://rootfrontend.fly.dev",
+                "http://localhost:61583"
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
-
 // 🛠️ Services
 builder.Services.AddControllers();
 builder.Services.Configure<CookiePolicyOptions>(options =>
@@ -116,35 +121,19 @@ if (builder.Environment.IsProduction() ||
         {
             throw new InvalidOperationException("Google ClientId and ClientSecret must be provided.");
         }
-        options.Events.OnRedirectToAuthorizationEndpoint = context =>
-        {
-            var uriBuilder = new UriBuilder(context.RedirectUri);
-            var query = System.Web.HttpUtility.ParseQueryString(uriBuilder.Query);
-
-            query["access_type"] = "offline";
-            query["prompt"] = "consent";
-
-            uriBuilder.Query = query.ToString();
-            context.Response.Redirect(uriBuilder.ToString());
-
-            return Task.CompletedTask;
-        };
 
         options.ClientId = clientId;
         options.ClientSecret = clientSecret;
+
+        // Spécifier l'URL complète ici
         options.CallbackPath = "/api/auth/google-callback";
-
-        options.Scope.Add("openid");
-        options.Scope.Add("profile");
-        options.Scope.Add("email");
-
 
         if (builder.Environment.IsProduction())
         {
             options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
             options.CorrelationCookie.SameSite = SameSiteMode.None;
             options.CorrelationCookie.HttpOnly = true;
-            options.CorrelationCookie.Domain = ".rootai.fr";
+            options.CorrelationCookie.Path = "/";
         }
     });
 }
