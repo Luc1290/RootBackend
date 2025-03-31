@@ -64,7 +64,7 @@ builder.Services.AddAuthentication(options =>
 })
 .AddCookie(options =>
 {
-    options.Cookie.SecurePolicy = CookieSecurePolicy.None; // ← important pour le dev HTTP
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 })
 .AddGoogle(options =>
 {
@@ -79,7 +79,15 @@ builder.Services.AddAuthentication(options =>
     options.ClientId = clientId;
     options.ClientSecret = clientSecret;
     options.CallbackPath = "/api/auth/google-callback";
+
+    if (builder.Environment.IsProduction())
+    {
+        options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.CorrelationCookie.SameSite = SameSiteMode.None;
+        options.CorrelationCookie.HttpOnly = true;
+    }
 });
+
 
 
 
