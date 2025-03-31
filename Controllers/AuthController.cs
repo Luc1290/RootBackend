@@ -12,11 +12,28 @@ namespace RootBackend.Controllers
         [HttpGet("google-login")]
         public IActionResult GoogleLogin()
         {
-            // Utiliser explicitement HTTPS
+            // Créer un état unique pour cette requête
+            var state = Guid.NewGuid().ToString();
+
+            // Stocker cet état dans le cookie temporairement
+            Response.Cookies.Append("GoogleOAuthState", state, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None
+            });
+
+            // Utiliser l'URL HTTPS
             var callbackUrl = "https://api.rootai.fr/api/auth/google-callback";
             Console.WriteLine($"Redirection vers Google avec callback: {callbackUrl}");
 
-            var properties = new AuthenticationProperties { RedirectUri = callbackUrl };
+            var properties = new AuthenticationProperties
+            {
+                RedirectUri = callbackUrl,
+                // Utiliser l'état généré
+                Items = { { ".xsrf", state } }
+            };
+
             return Challenge(properties, GoogleDefaults.AuthenticationScheme);
         }
 
@@ -24,6 +41,16 @@ namespace RootBackend.Controllers
         public async Task<IActionResult> GoogleCallback()
         {
             Console.WriteLine("Callback reçu de Google");
+
+            // Vérifier si le state est présent dans la requête
+            if (Request.Query.ContainsKey("state"))
+            {
+                Console.WriteLine($"State reçu: {Request.Query["state"]}");
+            }
+            else
+            {
+                Console.WriteLine("Aucun state reçu dans la requête");
+            }
             foreach (var header in Request.Headers)
             {
                 Console.WriteLine($"Header: {header.Key}={header.Value}");

@@ -44,6 +44,7 @@ builder.Services.AddCors(options =>
                 "https://www.rootai.fr",
                 "https://rootai.fr",
                 "https://api.rootai.fr",
+                "http://api.rootai.fr", // Ajouter la version HTTP pour les redirections
                 "https://rootfrontend.fly.dev",
                 "http://localhost:61583"
             )
@@ -100,18 +101,23 @@ builder.Services.AddAuthentication(options =>
     options.Cookie.SameSite = SameSiteMode.None;
     options.Cookie.HttpOnly = true;
     options.Cookie.Path = "/";
-    options.Cookie.Domain = null; // Utilise le domaine actuel
+
+    // Augmenter la durée de vie du cookie
+    options.ExpireTimeSpan = TimeSpan.FromMinutes(15);
 
     // Configurer pour gérer les erreurs d'authentification
-    options.Events.OnRedirectToAccessDenied = context =>
+    options.Events = new CookieAuthenticationEvents
     {
-        context.Response.StatusCode = 403;
-        return Task.CompletedTask;
-    };
-    options.Events.OnRedirectToLogin = context =>
-    {
-        context.Response.StatusCode = 401;
-        return Task.CompletedTask;
+        OnRedirectToAccessDenied = context =>
+        {
+            context.Response.StatusCode = 403;
+            return Task.CompletedTask;
+        },
+        OnRedirectToLogin = context =>
+        {
+            context.Response.StatusCode = 401;
+            return Task.CompletedTask;
+        }
     };
 });
 
@@ -134,7 +140,14 @@ if (builder.Environment.IsProduction() ||
         options.ClientSecret = clientSecret;
         options.CallbackPath = "/api/auth/google-callback";
 
-        // Configurer les événements OAuth pour forcer HTTPS
+        // Configurer le cookie de corrélation spécifiquement pour Google
+        options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.CorrelationCookie.SameSite = SameSiteMode.None;
+        options.CorrelationCookie.HttpOnly = true;
+        options.CorrelationCookie.Path = "/";
+        options.CorrelationCookie.MaxAge = TimeSpan.FromMinutes(15);
+
+        // Configurer les événements OAuth pour forcer HTTPS et améliorer la gestion des erreurs
         options.Events = new OAuthEvents
         {
             OnRedirectToAuthorizationEndpoint = context =>
@@ -145,18 +158,23 @@ if (builder.Environment.IsProduction() ||
                     Scheme = "https"
                 }.Uri.ToString();
 
+                Console.WriteLine($"Redirection vers le point d'autorisation: {redirectUri}");
                 context.Response.Redirect(redirectUri);
+                return Task.CompletedTask;
+            },
+            OnRemoteFailure = context =>
+            {
+                Console.WriteLine($"Erreur OAuth: {context.Failure?.Message}");
+                context.Response.Redirect("/login?error=" + Uri.EscapeDataString(context.Failure?.Message ?? "Erreur d'authentification"));
+                context.HandleResponse();
+                return Task.CompletedTask;
+            },
+            OnCreatingTicket = context =>
+            {
+                Console.WriteLine("Création du ticket d'authentification réussie");
                 return Task.CompletedTask;
             }
         };
-
-        if (builder.Environment.IsProduction())
-        {
-            options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
-            options.CorrelationCookie.SameSite = SameSiteMode.None;
-            options.CorrelationCookie.HttpOnly = true;
-            options.CorrelationCookie.Path = "/";
-        }
     });
 }
 
@@ -168,10 +186,18 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
     ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedHost
 });
 
-// Forcer le schéma HTTPS dans les URLs générées
+// Forcer le schéma HTTPS dans les URLs générées avec des exceptions pour les callbacks
 app.Use(async (context, next) =>
 {
+    // Forcer HTTPS dans le schéma
     context.Request.Scheme = "https";
+
+    // Si nous sommes déjà dans une requête de callback OAuth, ne pas rediriger
+    if (context.Request.Path.StartsWithSegments("/api/auth/google-callback"))
+    {
+        await next();
+        return;
+    }
 
     // Si la requête arrive en HTTP, rediriger vers HTTPS
     if (context.Request.Headers.TryGetValue("X-Forwarded-Proto", out var proto) &&
@@ -220,6 +246,13 @@ app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// Ajouter un point de terminaison pour le débogage des cookies
+app.MapGet("/debug-cookies", (HttpContext context) => {
+    var cookies = context.Request.Cookies;
+    var cookieList = cookies.Select(c => $"{c.Key}: {c.Value}").ToList();
+    return Results.Ok(new { Cookies = cookieList });
+});
 
 app.MapGet("/health", () => Results.Ok("Healthy"));
 
