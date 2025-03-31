@@ -88,6 +88,16 @@ builder.Services.AddDbContext<MemoryContext>(options =>
     });
 });
 
+// Session pour stocker des données temporaires
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(15);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.None;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+});
+
 // 🔐 Auth
 builder.Services.AddAuthentication(options =>
 {
@@ -101,6 +111,7 @@ builder.Services.AddAuthentication(options =>
     options.Cookie.SameSite = SameSiteMode.None;
     options.Cookie.HttpOnly = true;
     options.Cookie.Path = "/";
+    options.Cookie.Name = "RootAI.Auth"; // Nom spécifique pour éviter les conflits
 
     // Augmenter la durée de vie du cookie
     options.ExpireTimeSpan = TimeSpan.FromMinutes(15);
@@ -140,12 +151,20 @@ if (builder.Environment.IsProduction() ||
         options.ClientSecret = clientSecret;
         options.CallbackPath = "/api/auth/google-callback";
 
+        // Ajouter des scopes explicites
+        options.Scope.Add("profile");
+        options.Scope.Add("email");
+
+        // Sauvegarder les tokens pour référence future
+        options.SaveTokens = true;
+
         // Configurer le cookie de corrélation spécifiquement pour Google
         options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.CorrelationCookie.SameSite = SameSiteMode.None;
+        options.CorrelationCookie.SameSite = SameSiteMode.None; // Crucial pour le flux OAuth cross-domain
         options.CorrelationCookie.HttpOnly = true;
         options.CorrelationCookie.Path = "/";
         options.CorrelationCookie.MaxAge = TimeSpan.FromMinutes(15);
+        options.CorrelationCookie.Name = "RootAI.GoogleOAuth.Correlation";
 
         // Configurer les événements OAuth pour forcer HTTPS et améliorer la gestion des erreurs
         options.Events = new OAuthEvents
@@ -165,13 +184,20 @@ if (builder.Environment.IsProduction() ||
             OnRemoteFailure = context =>
             {
                 Console.WriteLine($"Erreur OAuth: {context.Failure?.Message}");
-                context.Response.Redirect("/login?error=" + Uri.EscapeDataString(context.Failure?.Message ?? "Erreur d'authentification"));
+                // Rediriger vers la page de login du frontend
+                context.Response.Redirect("https://rootai.fr/login?error=" + Uri.EscapeDataString(context.Failure?.Message ?? "Erreur d'authentification"));
                 context.HandleResponse();
                 return Task.CompletedTask;
             },
             OnCreatingTicket = context =>
             {
                 Console.WriteLine("Création du ticket d'authentification réussie");
+                return Task.CompletedTask;
+            },
+            OnTicketReceived = context =>
+            {
+                Console.WriteLine("Ticket d'authentification reçu");
+                // Vous pouvez ajouter du code ici pour inspecter le ticket
                 return Task.CompletedTask;
             }
         };
@@ -218,6 +244,19 @@ app.Use(async (context, next) =>
     await next();
 });
 
+// Ajouter plus de détails d'erreur en développement
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+}
+else
+{
+    app.UseExceptionHandler("/error");
+}
+
+// Activer la session
+app.UseSession();
+
 // Appliquer les options de cookies SameSite
 app.UseCookiePolicy();
 
@@ -251,7 +290,13 @@ app.MapControllers();
 app.MapGet("/debug-cookies", (HttpContext context) => {
     var cookies = context.Request.Cookies;
     var cookieList = cookies.Select(c => $"{c.Key}: {c.Value}").ToList();
-    return Results.Ok(new { Cookies = cookieList });
+    return Results.Ok(new
+    {
+        Cookies = cookieList,
+        Headers = context.Request.Headers.Select(h => $"{h.Key}: {h.Value}").ToList(),
+        AuthenticatedUser = context.User?.Identity?.IsAuthenticated ?? false,
+        UserName = context.User?.Identity?.Name
+    });
 });
 
 app.MapGet("/health", () => Results.Ok("Healthy"));
