@@ -9,10 +9,24 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.HttpOverrides;
 
-
 var builder = WebApplication.CreateBuilder(args);
 
-// CORS
+// Force Fly à détecter le HTTPS via headers
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.ListenAnyIP(8080);
+})
+.ConfigureAppConfiguration((hostingContext, config) =>
+{
+    hostingContext.Configuration["ForwardedHeaders_Enabled"] = "true";
+});
+
+// Ajoute une politique de cookies cross-origin
+builder.Services.Configure<CookiePolicyOptions>(options =>
+{
+    options.MinimumSameSitePolicy = SameSiteMode.None;
+});
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -24,7 +38,6 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -41,11 +54,6 @@ builder.Services.AddSingleton<IRootSkill, ConversationSkill>();
 builder.Services.AddSingleton<GroqService>();
 builder.Services.AddScoped<MessageService>();
 
-// DB
-builder.WebHost.ConfigureKestrel(serverOptions =>
-{
-    serverOptions.ListenAnyIP(8080);
-});
 var connectionString = DbUtils.GetConnectionStringFromEnv();
 builder.Services.AddDbContext<MemoryContext>(options =>
 {
@@ -98,13 +106,14 @@ if (builder.Environment.IsProduction() ||
 
 var app = builder.Build();
 
+// ➕ Place tout en haut du pipeline
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedProto
 });
 
+app.UseCookiePolicy();
 
-// Migrations
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<MemoryContext>();
@@ -114,7 +123,6 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// Middleware
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
