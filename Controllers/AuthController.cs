@@ -12,25 +12,45 @@ namespace RootBackend.Controllers
         [HttpGet("google-login")]
         public IActionResult GoogleLogin()
         {
+            var callbackUrl = $"https://{Request.Host}/api/auth/google-callback";
+            Console.WriteLine($"Redirection vers Google avec callback: {callbackUrl}");
+
             var properties = new AuthenticationProperties
             {
-                RedirectUri = "https://api.rootai.fr/api/auth/google-callback"
+                RedirectUri = callbackUrl,
+                // Ajouter une valeur d'état pour la sécurité CSRF
+                Items = { { ".xsrf", Guid.NewGuid().ToString() } }
             };
 
             return Challenge(properties, GoogleDefaults.AuthenticationScheme);
         }
 
-
-
         [HttpGet("google-callback")]
         public async Task<IActionResult> GoogleCallback()
         {
+            Console.WriteLine("Callback reçu de Google");
+            foreach (var header in Request.Headers)
+            {
+                Console.WriteLine($"Header: {header.Key}={header.Value}");
+            }
 
-            Console.WriteLine("Callback called!");
             var result = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            Console.WriteLine($"Authentication result: {result.Succeeded}");
+            Console.WriteLine($"Authentification réussie: {result.Succeeded}");
+
             if (!result.Succeeded)
+            {
+                if (result.Failure?.Data != null)
+                {
+                    foreach (var failure in result.Failure.Data)
+                    {
+                        Console.WriteLine($"Erreur auth: {failure}");
+                    }
+                }
+
                 return Unauthorized();
+            }
+
+
 
             var claims = result.Principal.Identities
                 .FirstOrDefault()?.Claims.Select(claim => new { claim.Type, claim.Value });
