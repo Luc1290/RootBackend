@@ -25,14 +25,6 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Clear();
 });
 
-// 🔐 Cookies cross-domain
-builder.Services.Configure<CookiePolicyOptions>(options =>
-{
-    options.MinimumSameSitePolicy = SameSiteMode.None;
-    options.HttpOnly = HttpOnlyPolicy.Always;
-    options.Secure = CookieSecurePolicy.Always;
-});
-
 // 🟢 CORS
 builder.Services.AddCors(options =>
 {
@@ -47,6 +39,12 @@ builder.Services.AddCors(options =>
 
 // 🛠️ Services
 builder.Services.AddControllers();
+builder.Services.Configure<CookiePolicyOptions>(options =>
+{
+    options.MinimumSameSitePolicy = SameSiteMode.None;
+    options.HttpOnly = Microsoft.AspNetCore.CookiePolicy.HttpOnlyPolicy.Always;
+    options.Secure = CookieSecurePolicy.Always;
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient<GroqService>();
@@ -116,9 +114,6 @@ if (builder.Environment.IsProduction() ||
 
 var app = builder.Build();
 
-// 🔁 Place TOUT en haut
-app.UseForwardedHeaders();
-
 // 🧪 Ajoute le header CORS manuellement si jamais ça bloque
 app.Use(async (context, next) =>
 {
@@ -148,6 +143,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedFor
+});
 app.UseRouting();
 app.UseCors("AllowFrontend");
 app.UseAuthentication();
