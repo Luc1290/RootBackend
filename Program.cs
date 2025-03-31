@@ -8,25 +8,32 @@ using RootBackend.Data;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.CookiePolicy;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Force Fly à détecter le HTTPS via headers
+// 🔧 Proxy / HTTPS
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
     serverOptions.ListenAnyIP(8080);
-})
-.ConfigureAppConfiguration((hostingContext, config) =>
-{
-    hostingContext.Configuration["ForwardedHeaders_Enabled"] = "true";
 });
 
-// Ajoute une politique de cookies cross-origin
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
+// 🔐 Cookies cross-domain
 builder.Services.Configure<CookiePolicyOptions>(options =>
 {
     options.MinimumSameSitePolicy = SameSiteMode.None;
+    options.HttpOnly = HttpOnlyPolicy.Always;
+    options.Secure = CookieSecurePolicy.Always;
 });
 
+// 🟢 CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -38,6 +45,7 @@ builder.Services.AddCors(options =>
     });
 });
 
+// 🛠️ Services
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -54,6 +62,7 @@ builder.Services.AddSingleton<IRootSkill, ConversationSkill>();
 builder.Services.AddSingleton<GroqService>();
 builder.Services.AddScoped<MessageService>();
 
+// 📊 DB
 var connectionString = DbUtils.GetConnectionStringFromEnv();
 builder.Services.AddDbContext<MemoryContext>(options =>
 {
@@ -64,7 +73,7 @@ builder.Services.AddDbContext<MemoryContext>(options =>
     });
 });
 
-// Auth
+// 🔐 Auth
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
@@ -74,6 +83,7 @@ builder.Services.AddAuthentication(options =>
 .AddCookie(options =>
 {
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.None;
 });
 
 if (builder.Environment.IsProduction() ||
@@ -106,14 +116,20 @@ if (builder.Environment.IsProduction() ||
 
 var app = builder.Build();
 
-// ➕ Place tout en haut du pipeline
-app.UseForwardedHeaders(new ForwardedHeadersOptions
+// 🔁 Place TOUT en haut
+app.UseForwardedHeaders();
+
+// 🧪 Ajoute le header CORS manuellement si jamais ça bloque
+app.Use(async (context, next) =>
 {
-    ForwardedHeaders = ForwardedHeaders.XForwardedProto
+    context.Response.Headers.Add("Access-Control-Allow-Credentials", "true");
+    await next();
 });
 
+// 🔐 Appliquer les options de cookies SameSite
 app.UseCookiePolicy();
 
+// 🛠️ DB Migration
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<MemoryContext>();
@@ -123,6 +139,7 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+// 📜 Swagger
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
