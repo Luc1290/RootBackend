@@ -37,7 +37,7 @@ namespace RootBackend.Controllers
                 if (!result.Succeeded)
                 {
                     Console.WriteLine($"Raison de l'échec: {result.Failure?.Message}");
-                    return Redirect("https://rootai.fr/login?error=auth_failed");
+                    return Redirect("https://api.rootai.fr/login?error=auth_failed");
                 }
 
                 var claims = result.Principal.Identities
@@ -46,14 +46,14 @@ namespace RootBackend.Controllers
                 Console.WriteLine($"Nombre de claims: {claims?.Count ?? 0}");
 
                 // Rediriger vers la page d'accueil après une connexion réussie
-                return Redirect("https://rootai.fr/");
+                return Redirect("https://api.rootai.fr/");
             }
             catch (Exception ex)
             {
                 // Capture et log les exceptions
                 Console.WriteLine($"Exception dans GoogleCallback: {ex.Message}");
                 Console.WriteLine($"StackTrace: {ex.StackTrace}");
-                return Redirect("https://rootai.fr/login?error=" + Uri.EscapeDataString(ex.Message));
+                return Redirect("https://api.rootai.fr/login?error=" + Uri.EscapeDataString(ex.Message));
             }
         }
 
