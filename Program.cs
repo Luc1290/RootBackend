@@ -122,9 +122,10 @@ app.UseForwardedHeaders();
 // 🧪 Ajoute le header CORS manuellement si jamais ça bloque
 app.Use(async (context, next) =>
 {
-    context.Response.Headers.Add("Access-Control-Allow-Credentials", "true");
+    context.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
     await next();
 });
+
 
 // 🔐 Appliquer les options de cookies SameSite
 app.UseCookiePolicy();
