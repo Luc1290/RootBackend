@@ -25,7 +25,7 @@ namespace RootBackend.Controllers
             });
 
             // Utiliser l'URL HTTPS
-            var callbackUrl = "https://rootai.fr/api/auth/google-callback";
+            var callbackUrl = "https://api.rootai.fr/api/auth/google-callback";
             Console.WriteLine($"Redirection vers Google avec callback: {callbackUrl}");
 
             var properties = new AuthenticationProperties
