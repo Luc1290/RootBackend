@@ -65,31 +65,36 @@ builder.Services.AddAuthentication(options =>
 .AddCookie(options =>
 {
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-})
-.AddGoogle(options =>
-{
-    var clientId = builder.Configuration["Authentication:Google:ClientId"];
-    var clientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
-
-    if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret))
-    {
-        throw new InvalidOperationException("Google ClientId and ClientSecret must be provided.");
-    }
-
-    options.ClientId = clientId;
-    options.ClientSecret = clientSecret;
-    options.CallbackPath = "/api/auth/google-callback";
-
-    if (builder.Environment.IsProduction())
-    {
-        options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.CorrelationCookie.SameSite = SameSiteMode.None;
-        options.CorrelationCookie.HttpOnly = true;
-    }
 });
 
+// Active Google uniquement en prod (ou si on a bien les secrets)
+if (builder.Environment.IsProduction() ||
+    (!string.IsNullOrEmpty(builder.Configuration["Authentication:Google:ClientId"]) &&
+     !string.IsNullOrEmpty(builder.Configuration["Authentication:Google:ClientSecret"])))
+{
+    builder.Services.AddAuthentication()
+    .AddGoogle(options =>
+    {
+        var clientId = builder.Configuration["Authentication:Google:ClientId"];
+        var clientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
 
+        if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret))
+        {
+            throw new InvalidOperationException("Google ClientId and ClientSecret must be provided.");
+        }
 
+        options.ClientId = clientId;
+        options.ClientSecret = clientSecret;
+        options.CallbackPath = "/api/auth/google-callback";
+
+        if (builder.Environment.IsProduction())
+        {
+            options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
+            options.CorrelationCookie.SameSite = SameSiteMode.None;
+            options.CorrelationCookie.HttpOnly = true;
+        }
+    });
+}
 
 var app = builder.Build();
 
