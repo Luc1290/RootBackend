@@ -38,7 +38,7 @@ namespace RootBackend.Controllers
         {
             var properties = new AuthenticationProperties
             {
-                // Utiliser l'URL complète au lieu d'un chemin relatif
+                // URL complète pour le callback
                 RedirectUri = "https://api.rootai.fr/api/auth/google-callback",
                 // Renforcer la sécurité de l'état OAuth
                 Items = { { ".xsrf", Guid.NewGuid().ToString() } }
@@ -61,7 +61,7 @@ namespace RootBackend.Controllers
                         result.Principal,
                         result.Properties);
 
-                    // Rediriger vers le frontend
+                    // Rediriger vers le frontend - utilisez la route exacte configurée dans votre App.jsx
                     return Redirect("https://rootai.fr/auth/callback");
                 }
 
@@ -69,6 +69,8 @@ namespace RootBackend.Controllers
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Exception dans GoogleCallback: {ex.Message}");
+                Console.WriteLine($"StackTrace: {ex.StackTrace}");
                 return Redirect($"https://rootai.fr/login?error={Uri.EscapeDataString(ex.Message)}");
             }
         }
