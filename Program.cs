@@ -220,6 +220,13 @@ if (builder.Environment.IsProduction() ||
             OnTicketReceived = context =>
             {
                 Console.WriteLine("Ticket d'authentification reçu");
+
+                // Évite les requêtes répétées
+                if (context.Properties?.Items.ContainsKey(".redirect") == true)
+                {
+                    context.Properties.RedirectUri = "https://rootai.fr"; // redirection frontend après login
+                }
+
                 return Task.CompletedTask;
             }
         };
