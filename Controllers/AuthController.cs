@@ -100,5 +100,23 @@ namespace RootBackend.Controllers
         {
             return Ok(new { message = "L'API fonctionne correctement!", timestamp = DateTime.Now });
         }
+
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout()
+        {
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+            // Optionnel : supprimer les cookies manuellement côté serveur
+            Response.Cookies.Delete("RootAI.Auth", new CookieOptions
+            {
+                Domain = ".rootai.fr",
+                Secure = true,
+                SameSite = SameSiteMode.None
+            });
+
+            // Réponse simple
+            return Ok(new { message = "Déconnexion réussie" });
+        }
+
     }
 }
