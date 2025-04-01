@@ -15,31 +15,14 @@ namespace RootBackend.Controllers
         [HttpGet("google-login")]
         public IActionResult GoogleLogin()
         {
-            // Générer un état explicite pour la protection CSRF
-            var state = Guid.NewGuid().ToString();
-
             var properties = new AuthenticationProperties
             {
-                RedirectUri = "https://api.rootai.fr/api/auth/google-callback",
-                // Stocker l'état explicitement
-                Items = { { ".xsrf", state } }
+                RedirectUri = "https://api.rootai.fr/api/auth/google-callback"
             };
-
-            // Définir également un cookie supplémentaire de secours
-            Response.Cookies.Append("GoogleStateToken", state, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.None, // Crucial pour le flux OAuth cross-domain
-                Path = "/",
-                MaxAge = TimeSpan.FromMinutes(15)
-            });
-
-            Console.WriteLine($"Redirection vers Google avec callback: {properties.RedirectUri}");
-            Console.WriteLine($"État OAuth généré: {state}");
 
             return Challenge(properties, GoogleDefaults.AuthenticationScheme);
         }
+
 
         [HttpGet("google-callback")]
         public async Task<IActionResult> GoogleCallback()
