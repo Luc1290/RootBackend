@@ -17,6 +17,16 @@ namespace RootBackend.Controllers
         {
             var state = Guid.NewGuid().ToString();
 
+            Console.WriteLine("[google-login-url] Début appel API");
+            Console.WriteLine($"[google-login-url] User-Agent: {Request.Headers["User-Agent"]}");
+            Console.WriteLine($"[google-login-url] Host: {Request.Host}");
+            Console.WriteLine($"[google-login-url] Schéma: {Request.Scheme}");
+            Console.WriteLine($"[google-login-url] Headers:");
+            foreach (var header in Request.Headers)
+                Console.WriteLine($"  {header.Key}: {header.Value}");
+
+            Console.WriteLine("[google-login-url] Génération état OAuth : " + state);
+
             var props = new AuthenticationProperties
             {
                 RedirectUri = "https://api.rootai.fr/api/auth/google-callback",
@@ -32,10 +42,14 @@ namespace RootBackend.Controllers
                 MaxAge = TimeSpan.FromMinutes(5)
             });
 
+            Console.WriteLine("[google-login-url] Cookie 'GoogleOAuthState' posé avec SameSite=None, Secure=True");
+
             var url = Url.Action("GoogleLogin", "Auth");
             var scheme = Request.Scheme;
             var host = Request.Host;
             var fullUrl = $"{scheme}://{host}/api/auth/google-login?state={state}";
+
+            Console.WriteLine($"[google-login-url] URL générée : {fullUrl}");
 
             return Ok(new { url = fullUrl });
         }
@@ -43,6 +57,7 @@ namespace RootBackend.Controllers
         [HttpGet("google-login")]
         public IActionResult GoogleLogin([FromQuery] string state)
         {
+            Console.WriteLine($"[google-login] Reçu avec state: {state}");
             var properties = new AuthenticationProperties
             {
                 RedirectUri = "https://api.rootai.fr/api/auth/google-callback"
