@@ -36,10 +36,12 @@ namespace RootBackend.Controllers
         [HttpGet("google-login")]
         public IActionResult GoogleLogin()
         {
-            Console.WriteLine("[google-login] Début Challenge() Google");
             var properties = new AuthenticationProperties
             {
-                RedirectUri = "https://api.rootai.fr/api/auth/google-callback"
+                // Utiliser l'URL complète au lieu d'un chemin relatif
+                RedirectUri = "https://api.rootai.fr/api/auth/google-callback",
+                // Renforcer la sécurité de l'état OAuth
+                Items = { { ".xsrf", Guid.NewGuid().ToString() } }
             };
 
             return Challenge(properties, GoogleDefaults.AuthenticationScheme);
@@ -48,32 +50,26 @@ namespace RootBackend.Controllers
         [HttpGet("google-callback")]
         public async Task<IActionResult> GoogleCallback()
         {
-            Console.WriteLine("Callback reçu de Google");
-            Console.WriteLine($"URL complète: {Request.Scheme}://{Request.Host}{Request.Path}{Request.QueryString}");
-
             try
             {
-                var result = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-                Console.WriteLine($"Authentification réussie: {result.Succeeded}");
+                var result = await HttpContext.AuthenticateAsync(GoogleDefaults.AuthenticationScheme);
 
-                if (!result.Succeeded)
+                if (result.Succeeded)
                 {
-                    Console.WriteLine($"Raison de l'échec: {result.Failure?.Message}");
-                    return Redirect("https://rootai.fr/login?error=" + Uri.EscapeDataString("auth_failed: " + (result.Failure?.Message ?? "Unknown error")));
+                    await HttpContext.SignInAsync(
+                        CookieAuthenticationDefaults.AuthenticationScheme,
+                        result.Principal,
+                        result.Properties);
+
+                    // Rediriger vers le frontend
+                    return Redirect("https://rootai.fr/auth/callback");
                 }
 
-                var claims = result.Principal.Identities
-                    .FirstOrDefault()?.Claims.Select(claim => new { claim.Type, claim.Value }).ToList();
-
-                Console.WriteLine($"Nombre de claims: {claims?.Count ?? 0}");
-
-                return Redirect("https://rootai.fr/auth/callback");
+                return Redirect("https://rootai.fr/login?error=authentication_failed");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Exception dans GoogleCallback: {ex.Message}");
-                Console.WriteLine($"StackTrace: {ex.StackTrace}");
-                return Redirect("https://rootai.fr/login?error=" + Uri.EscapeDataString(ex.Message));
+                return Redirect($"https://rootai.fr/login?error={Uri.EscapeDataString(ex.Message)}");
             }
         }
 
