@@ -39,7 +39,7 @@ namespace RootBackend.Controllers
             Console.WriteLine("[google-login] Début Challenge() Google");
             var properties = new AuthenticationProperties
             {
-                RedirectUri = "https://api.rootai.fr/api/auth/google-callback"
+                RedirectUri = "https://rootbackend.fly.dev/api/auth/google-callback"
             };
 
             return Challenge(properties, GoogleDefaults.AuthenticationScheme);
