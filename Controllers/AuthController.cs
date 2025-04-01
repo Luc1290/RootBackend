@@ -12,8 +12,36 @@ namespace RootBackend.Controllers
     [ApiController]
     public class AuthController : ControllerBase
     {
+        [HttpGet("google-login-url")]
+        public IActionResult GetGoogleLoginUrl()
+        {
+            var state = Guid.NewGuid().ToString();
+
+            var props = new AuthenticationProperties
+            {
+                RedirectUri = "https://api.rootai.fr/api/auth/google-callback",
+                Items = { { "XsrfId", state } }
+            };
+
+            Response.Cookies.Append("GoogleOAuthState", state, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
+                Path = "/",
+                MaxAge = TimeSpan.FromMinutes(5)
+            });
+
+            var url = Url.Action("GoogleLogin", "Auth");
+            var scheme = Request.Scheme;
+            var host = Request.Host;
+            var fullUrl = $"{scheme}://{host}/api/auth/google-login?state={state}";
+
+            return Ok(new { url = fullUrl });
+        }
+
         [HttpGet("google-login")]
-        public IActionResult GoogleLogin()
+        public IActionResult GoogleLogin([FromQuery] string state)
         {
             var properties = new AuthenticationProperties
             {
