@@ -38,9 +38,9 @@ namespace RootBackend.Controllers
                 HttpOnly = true,
                 Secure = true,
                 SameSite = SameSiteMode.None,
-                Path = "/",
                 MaxAge = TimeSpan.FromMinutes(5)
             });
+
 
             Console.WriteLine("[google-login-url] Cookie 'GoogleOAuthState' posé avec SameSite=None, Secure=True");
 
