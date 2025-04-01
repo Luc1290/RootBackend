@@ -148,7 +148,7 @@ if (builder.Environment.IsProduction() ||
 
         options.ClientId = clientId;
         options.ClientSecret = clientSecret;
-        options.CallbackPath = "/api/auth/google-callback";
+        options.CallbackPath = "https://api.rootai.fr/api/auth/google-callback";
 
         // Ajouter des scopes explicites
         options.Scope.Add("profile");
