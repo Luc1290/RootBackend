@@ -110,7 +110,6 @@ builder.Services.AddAuthentication(options =>
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
     options.Cookie.SameSite = SameSiteMode.None;
     options.Cookie.HttpOnly = true;
-    options.Cookie.Path = "/";
     options.Cookie.Name = "RootAI.Auth"; // Nom spécifique pour éviter les conflits
 
     // Augmenter la durée de vie du cookie
@@ -162,7 +161,6 @@ if (builder.Environment.IsProduction() ||
         options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
         options.CorrelationCookie.SameSite = SameSiteMode.None; // Crucial pour le flux OAuth cross-domain
         options.CorrelationCookie.HttpOnly = true;
-        options.CorrelationCookie.Path = "/";
         options.CorrelationCookie.MaxAge = TimeSpan.FromMinutes(15);
         options.CorrelationCookie.Name = "RootAI.GoogleOAuth.Correlation";
 
