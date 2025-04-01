@@ -307,7 +307,7 @@ else
 
 // ORDRE CORRECT DES MIDDLEWARES
 app.UseSession(); // Session avant CookiePolicy
-app.UseCookiePolicy(); // CookiePolicy avant Authentication
+//app.UseCookiePolicy(); // CookiePolicy avant Authentication
 
 app.Use(async (context, next) => {
     Console.WriteLine($"Request Path: {context.Request.Path}, Host: {context.Request.Host}, Scheme: {context.Request.Scheme}");
