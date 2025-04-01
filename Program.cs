@@ -13,6 +13,7 @@ using System.Web;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.AspNetCore.HttpsPolicy;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -56,12 +57,16 @@ builder.Services.AddCors(options =>
 
 // 🛠️ Services
 builder.Services.AddControllers();
+
+// Configuration de la politique de cookies améliorée
 builder.Services.Configure<CookiePolicyOptions>(options =>
 {
     options.MinimumSameSitePolicy = SameSiteMode.None;
-    options.HttpOnly = Microsoft.AspNetCore.CookiePolicy.HttpOnlyPolicy.Always;
+    options.HttpOnly = HttpOnlyPolicy.Always;
     options.Secure = CookieSecurePolicy.Always;
+    options.CheckConsentNeeded = context => false; // Ne pas demander de consentement pour les cookies
 });
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient<GroqService>();
@@ -88,17 +93,18 @@ builder.Services.AddDbContext<MemoryContext>(options =>
     });
 });
 
-// Session pour stocker des données temporaires
+// Session pour stocker des données temporaires - Configuration améliorée
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromMinutes(15);
+    options.IdleTimeout = TimeSpan.FromMinutes(30); // Durée prolongée
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.None;
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.IsEssential = true; // Marquer comme essentiel
 });
 
-// 🔐 Auth
+// 🔐 Auth - Configuration améliorée
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
@@ -110,10 +116,12 @@ builder.Services.AddAuthentication(options =>
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
     options.Cookie.SameSite = SameSiteMode.None;
     options.Cookie.HttpOnly = true;
-    options.Cookie.Name = "RootAI.Auth"; // Nom spécifique pour éviter les conflits
+    options.Cookie.Name = "RootAI.Auth";
+    options.Cookie.Domain = null; // Permet au navigateur de gérer le domaine automatiquement
+    options.Cookie.IsEssential = true; // Marquer comme essentiel
 
     // Augmenter la durée de vie du cookie
-    options.ExpireTimeSpan = TimeSpan.FromMinutes(15);
+    options.ExpireTimeSpan = TimeSpan.FromHours(1);
 
     // Configurer pour gérer les erreurs d'authentification
     options.Events = new CookieAuthenticationEvents
@@ -157,14 +165,16 @@ if (builder.Environment.IsProduction() ||
         // Sauvegarder les tokens pour référence future
         options.SaveTokens = true;
 
-        // Configurer le cookie de corrélation spécifiquement pour Google
+        // Configuration améliorée du cookie de corrélation pour Google
         options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.CorrelationCookie.SameSite = SameSiteMode.None; // Crucial pour le flux OAuth cross-domain
+        options.CorrelationCookie.SameSite = SameSiteMode.None;
         options.CorrelationCookie.HttpOnly = true;
-        options.CorrelationCookie.MaxAge = TimeSpan.FromMinutes(15);
+        options.CorrelationCookie.Domain = null; // Permet au navigateur de gérer le domaine
+        options.CorrelationCookie.MaxAge = TimeSpan.FromMinutes(30);
+        options.CorrelationCookie.IsEssential = true; // Marquer comme essentiel
         options.CorrelationCookie.Name = "RootAI.GoogleOAuth.Correlation";
 
-        // Configurer les événements OAuth pour forcer HTTPS et améliorer la gestion des erreurs
+        // Configurer les événements OAuth pour améliorer la gestion des erreurs
         options.Events = new OAuthEvents
         {
             OnRedirectToAuthorizationEndpoint = context =>
@@ -176,26 +186,39 @@ if (builder.Environment.IsProduction() ||
                 }.Uri.ToString();
 
                 Console.WriteLine($"Redirection vers le point d'autorisation: {redirectUri}");
+
+                // Ajouter un paramètre de cache-buster pour éviter les problèmes de cache
+                var separator = redirectUri.Contains("?") ? "&" : "?";
+                redirectUri = $"{redirectUri}{separator}t={DateTime.UtcNow.Ticks}";
+
                 context.Response.Redirect(redirectUri);
                 return Task.CompletedTask;
             },
             OnRemoteFailure = context =>
             {
                 Console.WriteLine($"Erreur OAuth: {context.Failure?.Message}");
-                // Rediriger vers la page de login du frontend
-                context.Response.Redirect("https://rootai.fr/login?error=" + Uri.EscapeDataString(context.Failure?.Message ?? "Erreur d'authentification"));
+                // Ajouter plus de détails dans les logs
+                if (context.Failure != null)
+                {
+                    Console.WriteLine($"Exception détails: {context.Failure}");
+                    Console.WriteLine($"Stack trace: {context.Failure.StackTrace}");
+                }
+
+                // Rediriger vers la page de login du frontend avec des informations d'erreur
+                var errorMessage = context.Failure?.Message ?? "Erreur d'authentification";
+                context.Response.Redirect("https://rootai.fr/login?error=" + Uri.EscapeDataString(errorMessage));
                 context.HandleResponse();
                 return Task.CompletedTask;
             },
             OnCreatingTicket = context =>
             {
                 Console.WriteLine("Création du ticket d'authentification réussie");
+                Console.WriteLine($"Identité de l'utilisateur: {context.Identity?.Name}");
                 return Task.CompletedTask;
             },
             OnTicketReceived = context =>
             {
                 Console.WriteLine("Ticket d'authentification reçu");
-                // Vous pouvez ajouter du code ici pour inspecter le ticket
                 return Task.CompletedTask;
             }
         };
@@ -203,6 +226,35 @@ if (builder.Environment.IsProduction() ||
 }
 
 var app = builder.Build();
+
+// Middleware de débogage des cookies - AJOUT
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api/auth") ||
+        context.Request.Path.StartsWithSegments("/login") ||
+        context.Request.Path.StartsWithSegments("/debug-cookies"))
+    {
+        Console.WriteLine($"[DEBUG] Request Path: {context.Request.Path}");
+        Console.WriteLine("[DEBUG] Cookies avant traitement:");
+        foreach (var cookie in context.Request.Cookies)
+        {
+            Console.WriteLine($"[DEBUG] Cookie: {cookie.Key}={cookie.Value}");
+        }
+
+        // Capture les Set-Cookie de la réponse
+        context.Response.OnStarting(() =>
+        {
+            Console.WriteLine("[DEBUG] Cookies après traitement:");
+            foreach (var cookie in context.Response.Headers.Where(h => h.Key == "Set-Cookie"))
+            {
+                Console.WriteLine($"[DEBUG] Set-Cookie: {cookie.Value}");
+            }
+            return Task.CompletedTask;
+        });
+    }
+
+    await next();
+});
 
 // Placer ForwardedHeaders AVANT tout le reste
 app.UseForwardedHeaders(new ForwardedHeadersOptions
@@ -252,11 +304,14 @@ else
     app.UseExceptionHandler("/error");
 }
 
-// Activer la session
-app.UseSession();
+// ORDRE CORRECT DES MIDDLEWARES
+app.UseSession(); // Session avant CookiePolicy
+app.UseCookiePolicy(); // CookiePolicy avant Authentication
 
-// Appliquer les options de cookies SameSite
-app.UseCookiePolicy();
+app.Use(async (context, next) => {
+    Console.WriteLine($"Request Path: {context.Request.Path}, Host: {context.Request.Host}, Scheme: {context.Request.Scheme}");
+    await next();
+});
 
 // DB Migration
 using (var scope = app.Services.CreateScope())
@@ -275,25 +330,40 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// Ne pas utiliser HttpsRedirection car nous le gérons manuellement
-// app.UseHttpsRedirection();
-
+// Ordre correct des middlewares
 app.UseRouting();
 app.UseCors("AllowFrontend");
-app.UseAuthentication();
+app.UseAuthentication(); // Authentication avant Authorization
 app.UseAuthorization();
 app.MapControllers();
 
-// Ajouter un point de terminaison pour le débogage des cookies
+// Endpoint de débogage amélioré
 app.MapGet("/debug-cookies", (HttpContext context) => {
     var cookies = context.Request.Cookies;
     var cookieList = cookies.Select(c => $"{c.Key}: {c.Value}").ToList();
+
+    var headers = context.Request.Headers
+        .Select(h => $"{h.Key}: {string.Join(", ", h.Value.ToArray())}")
+        .ToList();
+
+    var userClaims = new List<object>();
+    if (context.User?.Claims != null)
+    {
+        userClaims = context.User.Claims
+            .Select(c => new { Type = c.Type, Value = c.Value })
+            .ToList<object>();
+    }
+
     return Results.Ok(new
     {
         Cookies = cookieList,
-        Headers = context.Request.Headers.Select(h => $"{h.Key}: {h.Value}").ToList(),
+        Headers = headers,
         AuthenticatedUser = context.User?.Identity?.IsAuthenticated ?? false,
-        UserName = context.User?.Identity?.Name
+        UserName = context.User?.Identity?.Name,
+        UserClaims = userClaims,
+        RequestScheme = context.Request.Scheme,
+        RequestHost = context.Request.Host.ToString(),
+        RequestPath = context.Request.Path.ToString()
     });
 });
 
