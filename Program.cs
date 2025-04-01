@@ -117,7 +117,7 @@ builder.Services.AddAuthentication(options =>
     options.Cookie.SameSite = SameSiteMode.None;
     options.Cookie.HttpOnly = true;
     options.Cookie.Name = "RootAI.Auth";
-    options.Cookie.Domain = null; // Permet au navigateur de gérer le domaine automatiquement
+    options.Cookie.Domain = ".rootai.fr";
     options.Cookie.IsEssential = true; // Marquer comme essentiel
 
     // Augmenter la durée de vie du cookie
@@ -169,7 +169,7 @@ if (builder.Environment.IsProduction() ||
         options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
         options.CorrelationCookie.SameSite = SameSiteMode.None;
         options.CorrelationCookie.HttpOnly = true;
-        options.CorrelationCookie.Domain = null; // Permet au navigateur de gérer le domaine
+        options.CorrelationCookie.Domain = ".rootai.fr";
         options.CorrelationCookie.MaxAge = TimeSpan.FromMinutes(30);
         options.CorrelationCookie.IsEssential = true; // Marquer comme essentiel
         options.CorrelationCookie.Name = "RootAI.GoogleOAuth.Correlation";
