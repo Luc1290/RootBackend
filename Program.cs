@@ -173,6 +173,7 @@ if (builder.Environment.IsProduction() ||
         options.CorrelationCookie.MaxAge = TimeSpan.FromMinutes(30);
         options.CorrelationCookie.IsEssential = true; // Marquer comme essentiel
         options.CorrelationCookie.Name = "RootAI.GoogleOAuth.Correlation";
+        options.CorrelationCookie.Path = "/";
 
         // Configurer les événements OAuth pour améliorer la gestion des erreurs
         options.Events = new OAuthEvents
