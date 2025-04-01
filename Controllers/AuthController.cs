@@ -77,7 +77,7 @@ namespace RootBackend.Controllers
                 if (!result.Succeeded)
                 {
                     Console.WriteLine($"Raison de l'échec: {result.Failure?.Message}");
-                    return Redirect("https://rootai.fr/login?error=" + Uri.EscapeDataString("auth_failed: " + (result.Failure?.Message ?? "Unknown error")));
+                    return Redirect("https://api.rootai.fr/login?error=" + Uri.EscapeDataString("auth_failed: " + (result.Failure?.Message ?? "Unknown error")));
                 }
 
                 var claims = result.Principal.Identities
@@ -86,16 +86,39 @@ namespace RootBackend.Controllers
                 Console.WriteLine($"Nombre de claims: {claims?.Count ?? 0}");
 
                 // Rediriger vers la page d'accueil du frontend après une connexion réussie
-                return Redirect("https://rootai.fr/");
+                return Redirect("https://rootai.fr/auth/callback");
+
             }
             catch (Exception ex)
             {
                 // Capture et log les exceptions
                 Console.WriteLine($"Exception dans GoogleCallback: {ex.Message}");
                 Console.WriteLine($"StackTrace: {ex.StackTrace}");
-                return Redirect("https://rootai.fr/login?error=" + Uri.EscapeDataString(ex.Message));
+                return Redirect("https://api.rootai.fr/login?error=" + Uri.EscapeDataString(ex.Message));
             }
         }
+
+        [HttpGet("me")]
+        public IActionResult Me()
+        {
+            if (User.Identity?.IsAuthenticated != true)
+            {
+                return Unauthorized(new { authenticated = false, message = "Utilisateur non connecté" });
+            }
+
+            var name = User.Identity.Name;
+
+            return Ok(new
+            {
+                authenticated = true,
+                user = new
+                {
+                    name = name
+                }
+            });
+        }
+
+
 
         [HttpGet("test")]
         public IActionResult Test()
