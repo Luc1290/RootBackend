@@ -23,5 +23,8 @@ namespace RootBackend.Models
         public string? AttachmentUrl { get; set; } // null si texte seulement
 
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+        // Nouveau champ pour identifier l'utilisateur
+        public string UserId { get; set; } = "anonymous";
     }
 }

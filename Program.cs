@@ -86,7 +86,7 @@ builder.Services.AddSingleton<GroqService>();
 builder.Services.AddScoped<MessageService>();
 
 // 📊 DB
-var connectionString = DbUtils.GetConnectionStringFromEnv();
+var connectionString = DbUtils.GetConnectionStringFromEnv(builder.Configuration);
 builder.Services.AddDbContext<MemoryContext>(options =>
 {
     options.UseNpgsql(connectionString, npgsqlOptions =>

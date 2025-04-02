@@ -1,9 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.Extensions.Configuration;
 using RootBackend.Utils;
-using RootBackend.Data;
-using RootBackend.Models;
-using RootBackend.Services;
+using System.IO;
 
 namespace RootBackend.Data
 {
@@ -11,7 +10,14 @@ namespace RootBackend.Data
     {
         public MemoryContext CreateDbContext(string[] args)
         {
-            var connectionString = DbUtils.GetConnectionStringFromEnv();
+            // Charger appsettings.Development.json
+            var config = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.Development.json", optional: true)
+                .Build();
+
+            var connectionString = DbUtils.GetConnectionStringFromEnv(config);
+
             var optionsBuilder = new DbContextOptionsBuilder<MemoryContext>();
             optionsBuilder.UseNpgsql(connectionString);
 
@@ -19,4 +25,3 @@ namespace RootBackend.Data
         }
     }
 }
-
