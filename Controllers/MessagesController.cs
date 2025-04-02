@@ -37,14 +37,15 @@ namespace RootBackend.Controllers
             var savedMessage = await _messageService.SaveUserMessageAsync(message.Content, "messages");
 
             // === [1] Vérifier si une skill peut répondre ===
-            var skillResponse = await _weatherSkill.HandleAsync(message.Content);
+            var dispatcher = HttpContext.RequestServices.GetRequiredService<SkillDispatcher>();
+            var skillResponse = await dispatcher.DispatchAsync(message.Content);
 
             if (!string.IsNullOrWhiteSpace(skillResponse))
             {
-                // Sauvegarde de la réponse du skill via le service
                 var reply = await _messageService.SaveBotMessageAsync(skillResponse, "skill");
                 return Ok(reply);
             }
+
 
             // === [2] Sinon on continue avec l'IA ===
             var aiReply = await _groq.GetCompletionAsync(message.Content);

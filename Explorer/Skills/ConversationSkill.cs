@@ -1,8 +1,9 @@
 ﻿using RootBackend.Services;
+using static RootBackend.Explorer.Skills.IntentionSkill;
 
 namespace RootBackend.Explorer.Skills
 {
-    public class ConversationSkill : IRootSkill
+    public partial class ConversationSkill : IRootSkill
     {
         private readonly GroqService _saba;
 
@@ -20,9 +21,16 @@ namespace RootBackend.Explorer.Skills
             return true;
         }
 
+        public async Task<string?> HandleWithContextAsync(string message, ParsedIntention context)
+        {
+            var prompt = ContextualPromptBuilder.Build(message, context);
+            return await _saba.GetCompletionAsync(prompt);
+        }
+
+        // Implémentation de la méthode HandleAsync requise par l'interface IRootSkill
         public async Task<string?> HandleAsync(string message)
         {
-            // Utiliser directement le service Groq existant
+            // Vous pouvez ajouter une logique ici pour gérer le message sans contexte
             return await _saba.GetCompletionAsync(message);
         }
     }

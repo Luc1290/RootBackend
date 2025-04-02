@@ -79,6 +79,9 @@ builder.Services.AddSingleton<WeatherSkill>();
 builder.Services.AddSingleton<IRootSkill, WeatherSkill>();
 builder.Services.AddSingleton<ConversationSkill>();
 builder.Services.AddSingleton<IRootSkill, ConversationSkill>();
+builder.Services.AddSingleton<IntentionSkill>();
+builder.Services.AddSingleton<IRootSkill, IntentionSkill>();
+builder.Services.AddSingleton<SkillDispatcher>();
 builder.Services.AddSingleton<GroqService>();
 builder.Services.AddScoped<MessageService>();
 
