@@ -19,26 +19,87 @@ namespace RootBackend.Services
 
         public async Task<string?> DispatchAsync(string userMessage)
         {
-            // Analyse sémantique préalable
+            // Analyse sémantique préalable pour comprendre l'intention
             var json = await _intentionSkill.HandleAsync(userMessage);
             var parsed = IntentionParser.Parse(json ?? "{}");
 
+            // Logging pour le débogage
+            Console.WriteLine($"Intentions détectées : {string.Join(", ", parsed.Intentions)}");
+            Console.WriteLine($"Message reçu : '{userMessage}'");
+
+            // Détection des questions sur les activités personnelles
+            bool isAboutActivity = userMessage.ToLower().Contains("faire") ||
+                                   userMessage.ToLower().Contains("aller") ||
+                                   userMessage.ToLower().Contains("vélo") ||
+                                   userMessage.ToLower().Contains("velo") ||
+                                   userMessage.ToLower().Contains("activité") ||
+                                   userMessage.ToLower().Contains("activite");
+
+            bool asksOpinion = userMessage.ToLower().Contains("dois") ||
+                               userMessage.ToLower().Contains("devrais") ||
+                               userMessage.ToLower().Contains("est-ce que je") ||
+                               userMessage.ToLower().Contains("tu penses") ||
+                               userMessage.ToLower().Contains("tu crois");
+
+            bool isDecisionQuestion = isAboutActivity && asksOpinion;
+
+            // Si c'est une demande de conseil personnel, envoyer directement au LLM
+            if (isDecisionQuestion || parsed.Intentions.Contains("conseil") || parsed.Intentions.Contains("décision"))
+            {
+                Console.WriteLine("⚡ Détection d'une question de conseil/décision, traitement par le LLM");
+                return await _conversationSkill.HandleWithContextAsync(userMessage, parsed);
+            }
+
+            // Si le message contient "demain" mais ne parle pas explicitement de météo
+            bool containsWeatherTerms = userMessage.ToLower().Contains("météo") ||
+                                        userMessage.ToLower().Contains("meteo") ||
+                                        userMessage.ToLower().Contains("température") ||
+                                        userMessage.ToLower().Contains("temps") ||
+                                        userMessage.ToLower().Contains("vent") ||
+                                        userMessage.ToLower().Contains("pluie");
+
+            if (userMessage.ToLower().Contains("demain") && !containsWeatherTerms)
+            {
+                Console.WriteLine("⚡ Détection de 'demain' sans termes météo, traitement par le LLM");
+                return await _conversationSkill.HandleWithContextAsync(userMessage, parsed);
+            }
+
+            // Vérification des skills spécialisés
             foreach (var skill in _skills)
             {
-                if (skill is IntentionSkill || skill is ConversationSkill) continue; // Ne pas réappeler l'analyse elle-même ou le fallback ici
+                // Ignorer l'analyse et la conversation pour éviter les boucles
+                if (skill is IntentionSkill || skill is ConversationSkill) continue;
 
-                // Nouvelle version de CanHandle enrichie avec intentions
+                string skillName = skill.GetType().Name;
+
+                // Si le skill est WeatherSkill, vérification supplémentaire
+                if (skill is WeatherSkill && !containsWeatherTerms)
+                {
+                    Console.WriteLine($"⏭️ Ignoré {skillName} - pas de termes météo explicites");
+                    continue;
+                }
+
+                // Vérification améliorée pour chaque skill
                 if (skill.CanHandle(userMessage, parsed.Intentions))
                 {
+                    Console.WriteLine($"✅ Skill trouvé: {skillName}");
                     var response = await skill.HandleAsync(userMessage);
+
                     if (!string.IsNullOrWhiteSpace(response))
                     {
                         return response;
                     }
+
+                    Console.WriteLine($"⚠️ {skillName} a renvoyé une réponse vide");
+                }
+                else
+                {
+                    Console.WriteLine($"❌ {skillName} ne peut pas traiter ce message");
                 }
             }
 
-            // Fallback sur ConversationSkill avec conscience du contexte
+            // Si aucun skill spécialisé n'a pu traiter le message, fallback sur le LLM
+            Console.WriteLine("🔄 Aucun skill spécialisé, fallback sur LLM");
             return await _conversationSkill.HandleWithContextAsync(userMessage, parsed);
         }
     }
@@ -48,14 +109,28 @@ namespace RootBackend.Services
     {
         public static bool CanHandle(this IRootSkill skill, string message, List<string> intentions)
         {
-            // Implémentation personnalisable par skill
-            if (skill is WeatherSkill && intentions.Contains("information") && message.ToLower().Contains("météo"))
-                return true;
+            // Pour le skill météo, soyons plus précis
+            if (skill is WeatherSkill)
+            {
+                bool explicitWeatherRequest = message.ToLower().Contains("météo") ||
+                                            message.ToLower().Contains("temps") ||
+                                            message.ToLower().Contains("pluie") ||
+                                            message.ToLower().Contains("température");
 
-            if (skill.CanHandle(message)) // fallback au comportement normal
-                return true;
+                // Ne déclencher que si c'est une demande d'information ET qu'il y a un mot lié à la météo
+                if (intentions.Contains("information") && explicitWeatherRequest)
+                    return true;
 
-            return false;
+                // Questions sur des activités avec "demain" ne devraient pas déclencher le skill météo
+                if (message.ToLower().Contains("demain") &&
+                    (message.ToLower().Contains("faire") ||
+                     message.ToLower().Contains("aller") ||
+                     message.ToLower().Contains("devoir")))
+                    return false;
+            }
+
+            // Vérification standard du skill
+            return skill.CanHandle(message);
         }
     }
 }

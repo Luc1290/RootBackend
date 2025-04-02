@@ -22,18 +22,25 @@ namespace RootBackend.Explorer.Skills
         public bool CanHandle(string message)
         {
             var msg = RemoveDiacritics(message).ToLowerInvariant();
-            return msg.Contains("meteo") ||
-                   msg.Contains("quel temps") ||
-                   msg.Contains("temperature") ||
-                   msg.Contains("il fait combien") ||
-                   msg.Contains("temps qu'il fait") ||
-                   msg.Contains("prevision") ||
-                   msg.Contains("jours") ||
-                   msg.Contains("semaine") ||
-                   msg.Contains("prochains jours") ||
-                   msg.Contains("demain");
-        }
 
+            // Liste de termes explicitement liés à la météo
+            bool hasMeteologicalTerms = msg.Contains("meteo") ||
+                           msg.Contains("quel temps") ||
+                           msg.Contains("temperature") ||
+                           msg.Contains("il fait combien") ||
+                           msg.Contains("temps qu'il fait") ||
+                           msg.Contains("prevision");
+
+            // Mots génériques qui ne devraient déclencher le skill que s'ils sont accompagnés de termes météo
+            bool hasContextTerms = (msg.Contains("jours") ||
+                                  msg.Contains("semaine") ||
+                                  msg.Contains("prochains jours") ||
+                                  msg.Contains("demain")) && hasMeteologicalTerms;
+
+            // Récupérer les questions sur la météo explicites OU les questions génériques qui contiennent des termes météo
+            return hasMeteologicalTerms || hasContextTerms;
+        }
+        
         public async Task<string?> HandleAsync(string message)
         {
             // 🔠 Mode sans faute : nettoyer le message utilisateur
