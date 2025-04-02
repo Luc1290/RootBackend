@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace RootBackend.Controllers
@@ -84,16 +85,19 @@ namespace RootBackend.Controllers
             }
 
             var name = User.Identity.Name;
+            var email = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
 
             return Ok(new
             {
                 authenticated = true,
                 user = new
                 {
-                    name = name
+                    name = name,
+                    email = email
                 }
             });
         }
+
 
         [HttpGet("test")]
         public IActionResult Test()
