@@ -75,8 +75,6 @@ builder.Services.AddSingleton<IntentionSkill>();
 builder.Services.AddSingleton<IRootSkill, IntentionSkill>();
 builder.Services.AddSingleton<NavigatorSkill>();
 builder.Services.AddSingleton<IRootSkill, NavigatorSkill>(provider => provider.GetRequiredService<NavigatorSkill>());
-builder.Services.AddSingleton<MeteoSkill>();
-builder.Services.AddSingleton<IRootSkill, MeteoSkill>();
 builder.Services.AddSingleton<WebScraperService>();
 builder.Services.AddSingleton<SkillDispatcher>();
 builder.Services.AddSingleton<GroqService>();

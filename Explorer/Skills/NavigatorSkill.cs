@@ -40,8 +40,13 @@ namespace RootBackend.Explorer.Skills
 
         public bool CanHandle(ParsedIntention intention)
         {
-            return intention.Intentions.Contains("websearch");
+            return intention.Intentions.Contains("websearch")
+                || intention.Intentions.Contains("info")
+                || intention.Intentions.Contains("actualité")
+                || intention.Intentions.Contains("météo")
+                || !intention.Intentions.Any(); // si rien de spécifique détecté, on prend !
         }
+
 
         public async Task<string> HandleAsync(string userMessage, ParsedIntention context, string userId)
         {
