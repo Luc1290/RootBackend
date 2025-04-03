@@ -15,6 +15,7 @@ namespace RootBackend.Services
             _skills = skills;
             _intentionSkill = intentionSkill;
             _conversationSkill = conversationSkill;
+            
         }
 
         public async Task<string?> DispatchAsync(string userMessage)

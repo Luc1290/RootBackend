@@ -19,10 +19,19 @@ namespace RootBackend.Explorer.Skills
             _scraper = scraper;
         }
 
-        public bool CanHandle(string input)
+        public bool CanHandle(string message)
         {
-            return Regex.IsMatch(input, @"\bmétéo\b", RegexOptions.IgnoreCase);
+            var lower = message.ToLower();
+            return lower.Contains("météo") ||
+                   lower.Contains("meteo") ||
+                   lower.Contains("quel temps") ||
+                   lower.Contains("temps qu'il fait") ||
+                   lower.Contains("fait-il") ||
+                   lower.Contains("prévision") ||
+                   lower.Contains("pluie") ||
+                   lower.Contains("va faire beau");
         }
+
 
         public async Task<string?> HandleAsync(string input)
         {
