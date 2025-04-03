@@ -5,7 +5,7 @@ namespace RootBackend.Utils
 {
     public static class DbUtils
     {
-        public static string GetConnectionStringFromEnv(IConfiguration configuration = null)
+        public static string GetConnectionStringFromEnv(IConfiguration? configuration = null)
         {
             // 1️⃣ Préférence : appsettings.Development.json (mode local EF Core)
             if (configuration != null)

@@ -19,8 +19,6 @@ WORKDIR /app
 
 # Copie de l'app compilée depuis le build
 COPY --from=build /app/publish .
-# Copie des navigateurs installés par Playwright
-COPY --from=build /root/.cache/ms-playwright /root/.cache/ms-playwright
 
 # Port exposé
 EXPOSE 8080
