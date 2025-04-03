@@ -44,8 +44,8 @@ COPY . .
 RUN dotnet build "RootBackend.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # ✅ Installer le CLI Playwright
-ENV PATH="$PATH:/root/.dotnet/tools"
 RUN dotnet tool install --global Microsoft.Playwright.CLI
+ENV PATH="${PATH}:/root/.dotnet/tools
 
 # ✅ Ici : on est dans /src, où se trouve RootBackend.csproj
 RUN dotnet playwright install --with-deps
