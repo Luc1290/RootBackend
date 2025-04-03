@@ -44,13 +44,10 @@ COPY . .
 RUN dotnet build "RootBackend.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # Installer le CLI Playwright en global
-RUN dotnet tool install --global Microsoft.Playwright.CLI
-
-# Ajouter les outils .NET au PATH
-ENV PATH=/root/.dotnet/tools:$PATH
-
-# Installer les navigateurs Playwright avec les dépendances
-RUN dotnet playwright install --with-deps
+# Install CLI Playwright en global et install des navigateurs avec les deps
+RUN dotnet tool install --global Microsoft.Playwright.CLI && \
+    export PATH="$PATH:/root/.dotnet/tools" && \
+    dotnet playwright install --with-deps
 
 
 # Publie les binaires
