@@ -47,7 +47,6 @@ namespace RootBackend.Explorer.Skills
                 || !intention.Intentions.Any(); // si rien de spécifique détecté, on prend !
         }
 
-
         public async Task<string> HandleAsync(string userMessage, ParsedIntention context, string userId)
         {
             try
@@ -66,7 +65,13 @@ namespace RootBackend.Explorer.Skills
                     return "Je n’ai pas pu obtenir de résultat pour cette recherche.";
                 }
 
-                var result = await response.Content.ReadAsStringAsync();
+                var pageContent = await response.Content.ReadAsStringAsync();
+
+                if (string.IsNullOrWhiteSpace(pageContent) || pageContent.Length < 100)
+                {
+                    _logger.LogWarning("[SCRAPER] 📭 Contenu HTML vide ou insuffisant.");
+                    return "Je n’ai pas trouvé cette information sur la page.";
+                }
 
                 // 🧠 Prompt unique et polyvalent
                 var prompt = $"""
@@ -75,10 +80,10 @@ Tu es un agent de lecture web très rigoureux.
 Tu reçois le contenu HTML d’une page web. Ta mission est d’analyser ce contenu **et uniquement ce contenu** pour en tirer des informations précises.
 
 Voici la demande de l’utilisateur :
-\"\"\"{userMessage}\"\"\"
+{userMessage}
 
 Voici le texte extrait de la page HTML :
-\"\"\"{result}\"\"\"
+{pageContent}
 
 Ta réponse doit :
 - Être **factuelle**, basée uniquement sur ce que tu trouves dans le texte.
@@ -89,7 +94,6 @@ Ta réponse doit :
 
 Tu peux utiliser des puces, titres, tableaux, ou une réponse directe si besoin. Mais reste toujours fidèle au contenu fourni.
 """;
-
 
                 var aiResponse = await _groqService.GetCompletionAsync(prompt);
                 _logger.LogInformation("[SCRAPER] ✅ Réponse IA : " + aiResponse.Substring(0, Math.Min(200, aiResponse.Length)) + "...");
