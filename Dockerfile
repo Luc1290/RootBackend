@@ -36,25 +36,28 @@ RUN apt-get update && apt-get install -y \
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
+
+# Copie + restore
 COPY ["RootBackend.csproj", "."]
 RUN dotnet restore "./RootBackend.csproj"
+
+# Copie tout le projet
 COPY . .
 
-# ✅ Installer Playwright CLI ici (SDK présent !)
+# Build AVANT l’installation de Playwright
+RUN dotnet build "./RootBackend.csproj" -c $BUILD_CONFIGURATION -o /app/build
+
+# Install Playwright CLI et navigateurs (post-build obligatoire)
 ENV PATH="$PATH:/root/.dotnet/tools"
 RUN dotnet tool install --global Microsoft.Playwright.CLI && \
     /root/.dotnet/tools/playwright install --with-deps
-
-
-
-RUN dotnet build "./RootBackend.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # Étape de publication
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
 RUN dotnet publish "./RootBackend.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
-# Étape finale pour exécution en prod
+# Étape finale (runtime pur)
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
