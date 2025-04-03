@@ -1,10 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
 using RootBackend.Models;
 using RootBackend.Services;
-using RootBackend.Utils;
 using System.Text.Json;
 using System.Text;
-using System.Net.Http.Headers;
 using static RootBackend.Explorer.Skills.IntentionSkill;
 
 namespace RootBackend.Explorer.Skills
@@ -30,15 +28,13 @@ namespace RootBackend.Explorer.Skills
 
         public bool CanHandle(string message)
         {
-            // Implement the method to satisfy the interface
-            var intention = IntentionSkill.IntentionParser.Parse(message);
+            var intention = IntentionParser.Parse(message);
             return CanHandle(intention);
         }
 
         public async Task<string?> HandleAsync(string message)
         {
-            // Implement the method to satisfy the interface
-            var intention = IntentionSkill.IntentionParser.Parse(message);
+            var intention = IntentionParser.Parse(message);
             return await HandleAsync(message, intention, "anonymous");
         }
 
@@ -54,14 +50,9 @@ namespace RootBackend.Explorer.Skills
                 _logger.LogInformation($"[SCRAPER] 🔍 Requête reçue pour : \"{userMessage}\"");
 
                 var client = _httpClientFactory.CreateClient();
-                var payload = new
-                {
-                    query = userMessage
-                };
+                var payload = new { query = userMessage };
 
-                var json = JsonSerializer.Serialize(payload);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
-
+                var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
                 var response = await client.PostAsync("https://root-web-scraper.fly.dev/scrape", content);
 
                 if (!response.IsSuccessStatusCode)
@@ -72,24 +63,20 @@ namespace RootBackend.Explorer.Skills
 
                 var result = await response.Content.ReadAsStringAsync();
 
-                // Prompt universel
+                // 🧠 Prompt unique et polyvalent
                 var prompt = $"""
-            Tu es un assistant web intelligent. Voici le contenu extrait d’une page internet :
+                Tu es un assistant intelligent avec un accès à internet.
 
-            ===================
-            {result}
-            ===================
+                Voici le contenu d’une page web que j’ai visitée pour répondre à la question suivante :
+                "{userMessage}"
 
-            Ta tâche :
-            - Résume les informations les plus utiles.
-            - Réponds à la demande de l’utilisateur si possible.
-            - Ignore les menus, cookies, mentions légales, ou tout contenu hors sujet.
+                ====================
+                {result}
+                ====================
 
-            Message initial de l'utilisateur : 
-            "{userMessage}"
-
-            Ta réponse :
-            """;
+                Donne une réponse synthétique, claire, et utile à l’utilisateur. Ignore les menus, publicités, cookies, mentions légales ou sections inutiles.
+                Si aucune info utile n’est trouvée, dis-le simplement.
+                """;
 
                 var aiResponse = await _groqService.GetCompletionAsync(prompt);
                 _logger.LogInformation("[SCRAPER] ✅ Réponse IA : " + aiResponse.Substring(0, Math.Min(200, aiResponse.Length)) + "...");
@@ -101,10 +88,9 @@ namespace RootBackend.Explorer.Skills
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "[SCRAPER] ❌ Erreur lors du traitement de la requête");
+                _logger.LogError(ex, "[SCRAPER] ❌ Erreur pendant la navigation");
                 return "Une erreur est survenue pendant la navigation. Réessaie dans un instant.";
             }
         }
     }
-
 }
