@@ -1,60 +1,40 @@
-# Runtime
+# STAGE 1 : Build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+# Copie du projet + restauration des dépendances
+COPY ["RootBackend.csproj", "."]
+RUN dotnet restore "RootBackend.csproj"
+
+# Copie du reste + build
+COPY . .
+RUN dotnet build "RootBackend.csproj" -c Release -o /app/build
+
+# Installation Playwright CLI
+RUN dotnet tool install --global Microsoft.Playwright.CLI
+
+# Lancement installation des dépendances Playwright
+RUN /root/.dotnet/tools/playwright install --with-deps
+
+# STAGE 2 : Runtime
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
-EXPOSE 8080
-EXPOSE 8081
 
-# Dépendances Playwright
+# Dépendances Linux requises par Playwright (headless Chromium)
 RUN apt-get update && apt-get install -y \
-    wget \
-    gnupg \
-    ca-certificates \
-    fonts-liberation \
-    libappindicator3-1 \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libcups2 \
-    libdbus-1-3 \
-    libgdk-pixbuf2.0-0 \
-    libnspr4 \
-    libnss3 \
-    libx11-xcb1 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxrandr2 \
-    xdg-utils \
-    libu2f-udev \
-    libvulkan1 \
-    libxss1 \
-    libxtst6 \
-    libglib2.0-0 \
+    wget gnupg ca-certificates fonts-liberation \
+    libappindicator3-1 libasound2 libatk-bridge2.0-0 libatk1.0-0 libcups2 \
+    libdbus-1-3 libgdk-pixbuf2.0-0 libnspr4 libnss3 libx11-xcb1 \
+    libxcomposite1 libxdamage1 libxrandr2 xdg-utils libu2f-udev \
+    libvulkan1 libxss1 libxtst6 libglib2.0-0 \
     --no-install-recommends && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Build
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-ARG BUILD_CONFIGURATION=Release
-WORKDIR /src
-COPY ["RootBackend.csproj", "."]
-RUN dotnet restore "RootBackend.csproj"
-COPY . .
+# Copie de l'app compilée depuis le build
+COPY --from=build /app/build .
 
-# ⛏️ Build le projet
-RUN dotnet build "RootBackend.csproj" -c $BUILD_CONFIGURATION -o /app/build
+# Port exposé (modifie si différent)
+EXPOSE 8080
 
-# Installer le CLI Playwright en global
-# Install CLI Playwright en global et install des navigateurs avec les deps
-RUN dotnet tool install --global Microsoft.Playwright.CLI && \
-    export PATH="$PATH:/root/.dotnet/tools" && \
-    dotnet playwright install --with-deps
-
-
-# Publie les binaires
-RUN dotnet publish "RootBackend.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
-
-# Image finale
-FROM base AS final
-WORKDIR /app
-COPY --from=build /app/publish .
+# Commande de lancement
 ENTRYPOINT ["dotnet", "RootBackend.dll"]
