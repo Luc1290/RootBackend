@@ -70,18 +70,26 @@ namespace RootBackend.Explorer.Skills
 
                 // 🧠 Prompt unique et polyvalent
                 var prompt = $"""
-                Tu es un assistant intelligent avec un accès à internet.
+Tu es un agent de lecture web très rigoureux.
 
-                Voici le contenu d’une page web que j’ai visitée pour répondre à la question suivante :
-                "{userMessage}"
+Tu reçois le contenu HTML d’une page web. Ta mission est d’analyser ce contenu **et uniquement ce contenu** pour en tirer des informations précises.
 
-                ====================
-                {result}
-                ====================
+Voici la demande de l’utilisateur :
+\"\"\"{userMessage}\"\"\"
 
-                Donne une réponse synthétique, claire, et utile à l’utilisateur. Ignore les menus, publicités, cookies, mentions légales ou sections inutiles.
-                Si aucune info utile n’est trouvée, dis-le simplement.
-                """;
+Voici le texte extrait de la page HTML :
+\"\"\"{result}\"\"\"
+
+Ta réponse doit :
+- Être **factuelle**, basée uniquement sur ce que tu trouves dans le texte.
+- Ne jamais conseiller l'utilisateur d'aller sur un site, utiliser une API ou une application.
+- Ne jamais proposer de code ou d’alternative de recherche.
+- Ne rien inventer si l'information n’est pas clairement indiquée.
+- Si la donnée n’est pas trouvable, réponds simplement : **“Je n’ai pas trouvé cette information sur la page.”**
+
+Tu peux utiliser des puces, titres, tableaux, ou une réponse directe si besoin. Mais reste toujours fidèle au contenu fourni.
+""";
+
 
                 var aiResponse = await _groqService.GetCompletionAsync(prompt);
                 _logger.LogInformation("[SCRAPER] ✅ Réponse IA : " + aiResponse.Substring(0, Math.Min(200, aiResponse.Length)) + "...");
