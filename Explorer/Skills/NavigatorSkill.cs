@@ -92,6 +92,7 @@ namespace RootBackend.Explorer.Skills
             """;
 
                 var aiResponse = await _groqService.GetCompletionAsync(prompt);
+                _logger.LogInformation("[SCRAPER] ✅ Réponse IA : " + aiResponse.Substring(0, Math.Min(200, aiResponse.Length)) + "...");
 
                 await _messageService.SaveUserMessageAsync(userMessage, "websearch", userId);
                 await _messageService.SaveBotMessageAsync(aiResponse, "websearch", userId);
