@@ -43,12 +43,15 @@ COPY . .
 # ⛏️ Build le projet
 RUN dotnet build "RootBackend.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
-# ✅ Installer le CLI Playwright
+# Installer le CLI Playwright en global
 RUN dotnet tool install --global Microsoft.Playwright.CLI
-ENV PATH="${PATH}:/root/.dotnet/tools
 
-# ✅ Ici : on est dans /src, où se trouve RootBackend.csproj
+# Ajouter les outils .NET au PATH
+ENV PATH=/root/.dotnet/tools:$PATH
+
+# Installer les navigateurs Playwright avec les dépendances
 RUN dotnet playwright install --with-deps
+
 
 # Publie les binaires
 RUN dotnet publish "RootBackend.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
