@@ -13,12 +13,12 @@ RUN dotnet build "RootBackend.csproj" -c Release -o /app/build
 # Publication de l'application
 RUN dotnet publish "RootBackend.csproj" -c Release -o /app/publish
 
-# Installation Playwright CLI et ses dépendances
+# Installation Playwright CLI
 RUN dotnet tool install --global Microsoft.Playwright.CLI
-# On s'assure que le PATH contient les outils dotnet
-ENV PATH="${PATH}:/root/.dotnet/tools"
-# On s'assure que le build est terminé avant d'installer Playwright
-WORKDIR /app/publish
+# Ajout de Playwright au PATH
+ENV PATH="$PATH:/root/.dotnet/tools"
+# Installation des navigateurs Playwright
+# On reste dans /src où se trouve le projet et pas dans /app/publish
 RUN playwright install --with-deps chromium
 
 # STAGE 2 : Runtime
@@ -35,9 +35,9 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Copie de l'app publiée depuis le build
+# Copie de l'app compilée depuis le build
 COPY --from=build /app/publish .
-# Copie des navigateurs installés par Playwright (principalement Chromium)
+# Copie des navigateurs installés par Playwright
 COPY --from=build /root/.cache/ms-playwright /root/.cache/ms-playwright
 
 # Port exposé
