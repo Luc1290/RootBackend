@@ -1,10 +1,10 @@
-# Étape de base utilisée par Visual Studio pour le conteneur
+# Étape base (runtime pur)
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
 EXPOSE 8080
 EXPOSE 8081
 
-# ✅ Ajout : dépendances système pour faire tourner Playwright dans l’image finale
+# Dépendances système nécessaires à Playwright
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
@@ -32,14 +32,19 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Étape build habituelle
+# Étape de build avec le SDK
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["RootBackend.csproj", "."]
 RUN dotnet restore "./RootBackend.csproj"
 COPY . .
-WORKDIR "/src/."
+
+# ✅ Installer Playwright CLI ici (SDK présent !)
+ENV PATH="$PATH:/root/.dotnet/tools"
+RUN dotnet tool install --global Microsoft.Playwright.CLI
+RUN dotnet playwright install --with-deps
+
 RUN dotnet build "./RootBackend.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # Étape de publication
@@ -47,16 +52,8 @@ FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
 RUN dotnet publish "./RootBackend.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
-# Étape finale (prod/exécution)
+# Étape finale pour exécution en prod
 FROM base AS final
 WORKDIR /app
-
-# ✅ Ajout : installe Playwright CLI globalement pour pouvoir faire le dotnet playwright install
-RUN dotnet tool install --global Microsoft.Playwright.CLI
-ENV PATH="$PATH:/root/.dotnet/tools"
-
-# ✅ Ajout : installe les navigateurs nécessaires à Playwright (Chromium, etc.)
-RUN dotnet playwright install --with-deps
-
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "RootBackend.dll"]
