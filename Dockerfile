@@ -60,4 +60,3 @@ RUN dotnet playwright install --with-deps
 
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "RootBackend.dll"]
-.dll"]
