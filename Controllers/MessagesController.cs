@@ -12,15 +12,13 @@ namespace RootBackend.Controllers
     {
         private readonly MessageService _messageService;
         private readonly GroqService _groq;
-        private readonly WeatherSkill _weatherSkill;
 
-        public MessagesController(MessageService messageService, GroqService groq, WeatherSkill weatherSkill)
+        public MessagesController(MessageService messageService, GroqService groq)
         {
             _messageService = messageService;
             _groq = groq;
-            _weatherSkill = weatherSkill;
         }
-
+                   
         [HttpGet]
         public async Task<ActionResult<IEnumerable<MessageLog>>> GetMessages(string? userId = null)
         {

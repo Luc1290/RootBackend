@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using RootBackend.Utils;
-using RootBackend.Explorer.ApiClients;
 using RootBackend.Explorer.Services;
 using RootBackend.Explorer.Skills;
 using RootBackend.Services;
@@ -70,17 +69,11 @@ builder.Services.Configure<CookiePolicyOptions>(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient<GroqService>();
-builder.Services.AddHttpClient<GeocodingClient>();
-builder.Services.AddHttpClient<OpenMeteoClient>();
-builder.Services.AddSingleton<GeocodingClient>();
-builder.Services.AddSingleton<OpenMeteoClient>();
-builder.Services.AddSingleton<WeatherExplorer>();
-builder.Services.AddSingleton<WeatherSkill>();
-builder.Services.AddSingleton<IRootSkill, WeatherSkill>();
 builder.Services.AddSingleton<ConversationSkill>();
 builder.Services.AddSingleton<IRootSkill, ConversationSkill>();
 builder.Services.AddSingleton<IntentionSkill>();
 builder.Services.AddSingleton<IRootSkill, IntentionSkill>();
+builder.Services.AddSingleton<IRootSkill, NavigatorSkill>();
 builder.Services.AddSingleton<SkillDispatcher>();
 builder.Services.AddSingleton<GroqService>();
 builder.Services.AddScoped<MessageService>();

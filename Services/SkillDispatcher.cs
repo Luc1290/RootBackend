@@ -72,13 +72,6 @@ namespace RootBackend.Services
 
                 string skillName = skill.GetType().Name;
 
-                // Si le skill est WeatherSkill, vérification supplémentaire
-                if (skill is WeatherSkill && !containsWeatherTerms)
-                {
-                    Console.WriteLine($"⏭️ Ignoré {skillName} - pas de termes météo explicites");
-                    continue;
-                }
-
                 // Vérification améliorée pour chaque skill
                 if (skill.CanHandle(userMessage, parsed.Intentions))
                 {
@@ -109,27 +102,7 @@ namespace RootBackend.Services
     {
         public static bool CanHandle(this IRootSkill skill, string message, List<string> intentions)
         {
-            // Pour le skill météo, soyons plus précis
-            if (skill is WeatherSkill)
-            {
-                bool explicitWeatherRequest = message.ToLower().Contains("météo") ||
-                                            message.ToLower().Contains("temps") ||
-                                            message.ToLower().Contains("pluie") ||
-                                            message.ToLower().Contains("température");
-
-                // Ne déclencher que si c'est une demande d'information ET qu'il y a un mot lié à la météo
-                if (intentions.Contains("information") && explicitWeatherRequest)
-                    return true;
-
-                // Questions sur des activités avec "demain" ne devraient pas déclencher le skill météo
-                if (message.ToLower().Contains("demain") &&
-                    (message.ToLower().Contains("faire") ||
-                     message.ToLower().Contains("aller") ||
-                     message.ToLower().Contains("devoir")))
-                    return false;
-            }
-
-            // Vérification standard du skill
+           // Vérification standard du skill
             return skill.CanHandle(message);
         }
     }
