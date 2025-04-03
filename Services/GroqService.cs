@@ -235,5 +235,26 @@ namespace RootBackend.Services
                 _throttleSemaphore.Release();
             }
         }
+
+        public async Task<string> AnalyzeHtmlAsync(string htmlContent, string userQuery)
+        {
+            if (string.IsNullOrWhiteSpace(htmlContent))
+                return "Le contenu de la page est vide.";
+
+            var prompt = $"""
+Tu es un assistant intelligent. Voici le contenu extrait d'une page web (limité à 10 000 caractères). Résume les informations utiles en lien avec la question suivante.
+
+# QUESTION UTILISATEUR
+{userQuery}
+
+# CONTENU DE LA PAGE
+{htmlContent}
+
+# RÉPONSE ATTENDUE
+""";
+
+            return await GetCompletionAsync(prompt);
+        }
+
     }
 }

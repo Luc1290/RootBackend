@@ -1,23 +1,25 @@
 ﻿using RootBackend.Explorer.Services;
-using System.Net.Http;
+using RootBackend.Services;
 using System.Text.RegularExpressions;
 
 namespace RootBackend.Explorer.Skills
 {
     public class NavigatorSkill : IRootSkill
     {
-        private readonly RootNavigator _navigator;
+        private readonly WebScraperService _scraper;
+        private readonly GroqService _groq;
 
-        public NavigatorSkill()
+        public NavigatorSkill(WebScraperService scraper, GroqService groq)
         {
-            _navigator = new RootNavigator();
+            _scraper = scraper;
+            _groq = groq;
         }
 
         public bool CanHandle(string input)
         {
             string[] triggers = new[]
             {
-                "va voir", "va sur", "explore", "ouvre", "cherche", "trouve", "regarde", "renseigne-toi"
+                "va voir", "va sur", "explore", "ouvre", "cherche", "trouve", "regarde", "renseigne-toi", "quelle est la météo", "combien coûte", "où acheter"
             };
 
             return triggers.Any(trigger => input.ToLower().Contains(trigger));
@@ -25,34 +27,16 @@ namespace RootBackend.Explorer.Skills
 
         public async Task<string?> HandleAsync(string input)
         {
-            // 1. Essaie d'extraire une URL
-            var match = Regex.Match(input, @"https?:\/\/[^\s]+");
-            if (match.Success)
-            {
-                var url = match.Value;
-                var content = await _navigator.ExplorePageAsync(url);
-                return $"Voici ce que j'ai trouvé sur {url} :\n\n{content}";
-            }
+            var (url, content) = await _scraper.ScrapeFirstResultAsync(input);
 
-            // 2. Sinon : on effectue une recherche web
-            var query = Uri.EscapeDataString(input);
-            var searchUrl = $"https://html.duckduckgo.com/html/?q={query}";
+            if (string.IsNullOrWhiteSpace(content) || string.IsNullOrWhiteSpace(url))
+                return "Désolé, je n’ai pas réussi à trouver une page pertinente sur ce sujet.";
 
-            var httpClient = new HttpClient();
-            var searchResult = await httpClient.GetStringAsync(searchUrl);
+            var analysis = await _groq.AnalyzeHtmlAsync(content, input);
 
-            // 3. On extrait un lien pertinent (le premier)
-            var linkMatch = Regex.Match(searchResult, @"https?:\/\/[^""]+");
-
-            if (!linkMatch.Success)
-                return "Je n'ai pas trouvé de lien pertinent pour cette recherche.";
-
-            var foundUrl = linkMatch.Value;
-
-            var foundContent = await _navigator.ExplorePageAsync(foundUrl);
-
-            return $"J'ai cherché sur Internet avec ta demande : \"{input}\".\nJe suis allée voir : {foundUrl}\n\nVoici ce que j'en ai retenu :\n\n{foundContent}";
+            return $"🔍 J’ai exploré le web pour répondre à ta question : \"{input}\".\n" +
+                   $"📎 Source : {url}\n\n" +
+                   $"🧠 Résumé :\n{analysis}";
         }
-
     }
 }
