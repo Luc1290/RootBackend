@@ -1,68 +1,57 @@
-﻿using System.Text.RegularExpressions;
+﻿using RootBackend.Services;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
-using RootBackend.Explorer.Services;
 
 namespace RootBackend.Explorer.Skills
 {
     public class MeteoSkill : IRootSkill
     {
-        private readonly ILogger<MeteoSkill> _logger;
-        private readonly IConfiguration _configuration;
-        private readonly WebScraperService _scraper;
+        private readonly GroqService _groq;
+        private readonly HttpClient _httpClient;
 
-        public MeteoSkill(ILogger<MeteoSkill> logger, IConfiguration configuration, WebScraperService scraper)
+        public MeteoSkill(GroqService groq, IHttpClientFactory httpClientFactory)
         {
-            _logger = logger;
-            _configuration = configuration;
-            _scraper = scraper;
+            _groq = groq;
+            _httpClient = httpClientFactory.CreateClient();
         }
 
         public bool CanHandle(string message)
         {
             var lower = message.ToLower();
-            return lower.Contains("météo") ||
-                   lower.Contains("meteo") ||
-                   lower.Contains("quel temps") ||
-                   lower.Contains("temps qu'il fait") ||
-                   lower.Contains("fait-il") ||
-                   lower.Contains("prévision") ||
-                   lower.Contains("pluie") ||
-                   lower.Contains("va faire beau");
+            return lower.Contains("météo") || lower.Contains("temps à") || lower.Contains("quel temps");
         }
 
-
-        public async Task<string?> HandleAsync(string input)
+        public async Task<string?> HandleAsync(string message)
         {
-            var location = ExtractLocation(input) ?? "Millau"; // fallback local 🤠
-            var response = await GetWeatherAsync(location);
-            return response ?? $"Je n’ai pas pu récupérer la météo pour {location}.";
+            try
+            {
+                // Étape 1 : envoyer au scraper
+                var payload = new { query = message };
+                var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+                var response = await _httpClient.PostAsync("https://root-web-scraper.fly.dev/scrape", content);
+
+                if (!response.IsSuccessStatusCode)
+                    return "Impossible de récupérer la météo pour le moment. 🌧️";
+
+                var json = await response.Content.ReadAsStringAsync();
+                var doc = JsonDocument.Parse(json);
+                var pageText = doc.RootElement.GetProperty("text").GetString();
+
+                if (string.IsNullOrEmpty(pageText))
+                    return "Je n’ai pas pu analyser la météo 😓.";
+
+                // Étape 2 : demander à Groq de résumer intelligemment
+                var answer = await _groq.AnalyzeHtmlAsync(pageText, message);
+
+                return answer ?? "Je n’ai pas pu analyser la météo 😓.";
+            }
+            catch
+            {
+                return "Erreur inattendue lors de l’analyse météo. Essaie encore dans un instant.";
+            }
         }
 
-
-        private string? ExtractLocation(string input)
-        {
-            var match = Regex.Match(input, @"(?:à|de|pour)\s+([a-zA-ZÀ-ÿ'\-\s]+)", RegexOptions.IgnoreCase);
-            return match.Success ? match.Groups[1].Value.Trim() : null;
-        }
-
-        private async Task<string?> GetWeatherAsync(string location)
-        {
-            var (url, content) = await _scraper.ScrapeAsync($"météo {location}");
-
-            if (string.IsNullOrWhiteSpace(content))
-                return $"Je n’ai pas trouvé d’information météo pour {location}.";
-
-            return $@"## ☁️ Météo à {char.ToUpper(location[0]) + location.Substring(1)}
-
-🌐 Source : {url}
-
-📄 Résumé :
-{content.Substring(0, Math.Min(1200, content.Length))}
-
----
-*Données extraites automatiquement — fiabilité non garantie.*";
-        }
     }
 }
