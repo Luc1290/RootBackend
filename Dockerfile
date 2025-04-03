@@ -1,10 +1,10 @@
-# Étape base (runtime pur)
+# Runtime
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
 EXPOSE 8080
 EXPOSE 8081
 
-# Dépendances système nécessaires à Playwright
+# Dépendances Playwright
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
@@ -29,35 +29,32 @@ RUN apt-get update && apt-get install -y \
     libxss1 \
     libxtst6 \
     libglib2.0-0 \
-    --no-install-recommends \
- && apt-get clean && rm -rf /var/lib/apt/lists/*
+    --no-install-recommends && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Étape build
+# Build
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-
 COPY ["RootBackend.csproj", "."]
-RUN dotnet restore "./RootBackend.csproj"
+RUN dotnet restore "RootBackend.csproj"
 COPY . .
 
-# Build du projet
-RUN dotnet build "./RootBackend.csproj" -c $BUILD_CONFIGURATION -o /app/build
+# ⛏️ Build le projet
+RUN dotnet build "RootBackend.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
-# Install Playwright CLI
+# ✅ Installer le CLI Playwright
 ENV PATH="$PATH:/root/.dotnet/tools"
 RUN dotnet tool install --global Microsoft.Playwright.CLI
 
-# ✅ Playwright exige que les DLL soient construites AVANT install
-# => on publie d’abord dans un dossier temporaire
-RUN dotnet publish "./RootBackend.csproj" -c $BUILD_CONFIGURATION -o /tmp/published /p:UseAppHost=false
+# ✅ Ici : on est dans /src, où se trouve RootBackend.csproj
+RUN dotnet playwright install --with-deps
 
-# On installe Playwright dans les binaires publiés
-WORKDIR /tmp/published
-RUN /root/.dotnet/tools/playwright install --with-deps
+# Publie les binaires
+RUN dotnet publish "RootBackend.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
-# Étape finale
+# Image finale
 FROM base AS final
 WORKDIR /app
-COPY --from=build /tmp/published .
+COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "RootBackend.dll"]
