@@ -1,47 +1,44 @@
-﻿using Microsoft.Playwright;
+﻿using System.Net.Http;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace RootBackend.Explorer.Services
 {
     public class WebScraperService
     {
-        public async Task<(string Url, string Content)> ScrapeFirstResultAsync(string query)
-        {
-            using var playwright = await Playwright.CreateAsync();
-            await using var browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
-            {
-                Headless = true,
-                Args = new[] { "--no-sandbox" } // nécessaire sur Fly.io
-            });
+        private readonly HttpClient _http;
 
-            var page = await browser.NewPageAsync();
+        public WebScraperService(IHttpClientFactory httpClientFactory)
+        {
+            _http = httpClientFactory.CreateClient();
+        }
+
+        public async Task<(string Url, string Content)> ScrapeAsync(string query)
+        {
+            var payload = new { query };
+            var json = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
             try
             {
-                // 1. Recherche sur DuckDuckGo
-                var searchUrl = $"https://duckduckgo.com/?q={Uri.EscapeDataString(query)}";
-                await page.GotoAsync(searchUrl);
-                await page.WaitForTimeoutAsync(1500);
+                var response = await _http.PostAsync("https://root-web-scraper.fly.dev/scrape", json);
+                response.EnsureSuccessStatusCode();
 
-                // 2. Clique sur le 1er lien
-                var firstResultSelector = "a.result__a";
-                await page.WaitForSelectorAsync(firstResultSelector, new PageWaitForSelectorOptions { Timeout = 5000 });
-                var href = await page.GetAttributeAsync(firstResultSelector, "href");
+                var body = await response.Content.ReadAsStringAsync();
+                var data = JsonSerializer.Deserialize<ScrapeResult>(body);
 
-                if (string.IsNullOrEmpty(href))
-                    throw new Exception("Aucun lien trouvé dans les résultats.");
-
-                // 3. Va sur le lien et extrait le contenu
-                await page.GotoAsync(href, new PageGotoOptions { WaitUntil = WaitUntilState.DOMContentLoaded });
-                await page.WaitForTimeoutAsync(2000); // Laisse le temps au contenu de charger
-
-                var text = await page.EvaluateAsync<string>("() => document.body.innerText");
-                return (href, text.Length > 10000 ? text.Substring(0, 10000) : text);
+                return (data?.Url ?? "", data?.Content ?? "Aucun contenu.");
             }
-            catch (Exception ex)
+            catch
             {
-                Console.WriteLine($"Erreur WebScraper : {ex.Message}");
-                return ("", "Une erreur est survenue lors du scraping.");
+                return ("", "Erreur de scraping. Le service est peut-être indisponible.");
             }
+        }
+
+        private class ScrapeResult
+        {
+            public string Url { get; set; } = "";
+            public string Content { get; set; } = "";
         }
     }
 }

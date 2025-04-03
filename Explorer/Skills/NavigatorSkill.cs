@@ -27,7 +27,7 @@ namespace RootBackend.Explorer.Skills
 
         public async Task<string?> HandleAsync(string input)
         {
-            var (url, content) = await _scraper.ScrapeFirstResultAsync(input);
+            var (url, content) = await _scraper.ScrapeAsync(input);
 
             if (string.IsNullOrWhiteSpace(content) || string.IsNullOrWhiteSpace(url))
                 return "Désolé, je n’ai pas réussi à trouver une page pertinente sur ce sujet.";
