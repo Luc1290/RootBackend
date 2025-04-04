@@ -18,16 +18,33 @@ namespace RootBackend.Controllers
         [HttpPost]
         public async Task<IActionResult> Ask([FromBody] ChatRequest request)
         {
+            Console.WriteLine($"📥 Nouvelle requête reçue : {request.Message}, UserId = {request.UserId}");
+
             var userId = User?.Identity?.IsAuthenticated == true
                 ? User.Identity.Name ?? "connected"
                 : request.UserId ?? "anonymous";
 
             if (string.IsNullOrWhiteSpace(request.Message))
+            {
+                Console.WriteLine("⚠️ Message vide.");
                 return BadRequest("Message vide.");
+            }
 
-            var reply = await _dispatcher.DispatchAsync(request.Message, userId);
-            return Ok(new { reply });
+            try
+            {
+                var reply = await _dispatcher.DispatchAsync(request.Message, userId);
+                Console.WriteLine($"✅ Réponse générée : {reply}");
+                return Ok(new { reply });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("💥 Erreur dans ChatController:");
+                Console.WriteLine(ex.Message);
+                Console.WriteLine(ex.StackTrace);
+                return StatusCode(500, "Une erreur est survenue.");
+            }
         }
+
     }
 
     public class ChatRequest
