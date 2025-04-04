@@ -45,10 +45,11 @@ builder.Services.AddCors(options =>
                 "https://api.rootai.fr",
                 "http://api.rootai.fr", // Ajouter la version HTTP pour les redirections
                 "https://rootfrontend.fly.dev",
-                "http://localhost:61583"
+                "http://localhost:61583",
+                "http://localhost:3000"
             )
-            .AllowAnyHeader()
-            .AllowAnyMethod()
+            .WithHeaders("Content-Type", "Authorization")
+            .WithMethods("GET", "POST", "OPTIONS")
             .AllowCredentials();
     });
 });
