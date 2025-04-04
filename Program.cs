@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using RootBackend.Utils;
-using RootBackend.Explorer.Skills;
 using RootBackend.Services;
 using RootBackend.Data;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -72,23 +71,10 @@ builder.Services.AddSwaggerGen();
 // Services HTTP externes
 builder.Services.AddHttpClient<GroqService>();
 builder.Services.AddHttpClient<NlpService>();
-builder.Services.AddHttpClient<PromptService>();
 
 // Services internes
 builder.Services.AddScoped<WebScraperService>();
 builder.Services.AddScoped<MessageService>();
-
-// Skills
-
-builder.Services.AddSingleton<IntentionSkill>();
-builder.Services.AddSingleton<IRootSkill, IntentionSkill>();
-
-builder.Services.AddScoped<NavigatorSkill>();
-builder.Services.AddSingleton<IRootSkill, NavigatorSkill>(provider => provider.GetRequiredService<NavigatorSkill>());
-
-// Dispatcher
-builder.Services.AddSingleton<SkillDispatcher>();
-
 
 // 📊 DB
 var connectionString = DbUtils.GetConnectionStringFromEnv(builder.Configuration);
@@ -386,5 +372,3 @@ app.MapGet("/debug-cookies", (HttpContext context) => {
 app.MapGet("/health", () => Results.Ok("Healthy"));
 
 app.Run();
-
-record ChatRequest(string Message);

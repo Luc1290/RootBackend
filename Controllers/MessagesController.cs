@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using RootBackend.Explorer.Skills;
 using RootBackend.Models;
 using RootBackend.Services;
 using System.Security.Claims;
@@ -11,14 +10,18 @@ namespace RootBackend.Controllers
     public class MessagesController : ControllerBase
     {
         private readonly MessageService _messageService;
+        private readonly NlpService _nlp;
         private readonly GroqService _groq;
 
-        public MessagesController(MessageService messageService, GroqService groq)
+
+        public MessagesController(MessageService messageService, NlpService nlpService, GroqService groq)
+
         {
             _messageService = messageService;
+            _nlp = nlpService;
             _groq = groq;
         }
-                   
+
         [HttpGet]
         public async Task<ActionResult<IEnumerable<MessageLog>>> GetMessages(string? userId = null)
         {
@@ -45,18 +48,17 @@ namespace RootBackend.Controllers
             // Sauvegarde du message utilisateur via le service
             var savedMessage = await _messageService.SaveUserMessageAsync(message.Content, "messages", userId);
 
-            // === [1] Vérifier si une skill peut répondre ===
-            var dispatcher = HttpContext.RequestServices.GetRequiredService<SkillDispatcher>();
-            var skillResponse = await dispatcher.DispatchAsync(message.Content);
-
-            if (!string.IsNullOrWhiteSpace(skillResponse))
+            // Appel à l'API NLP pour analyser le message  //
+            var nlpResult = await _nlp.AnalyzeAsync(message.Content);
+            if (nlpResult == null || string.IsNullOrWhiteSpace(nlpResult.Prompt))
             {
-                var reply = await _messageService.SaveBotMessageAsync(skillResponse, "skill", userId);
-                return Ok(reply);
+                return StatusCode(500, "Erreur NLP");
             }
 
-            // === [2] Sinon on continue avec l'IA ===
-            var aiReply = await _groq.GetCompletionAsync(message.Content);
+            // Appel à l'API Groq pour générer une réponse //
+            var aiReply = await _groq.GetCompletionAsync(nlpResult.Prompt); // ✅ propre, unique
+
+
 
             // Sauvegarde de la réponse de l'IA via le service
             var response = await _messageService.SaveBotMessageAsync(aiReply, "ai", userId);
