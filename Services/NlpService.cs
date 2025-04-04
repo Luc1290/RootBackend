@@ -21,7 +21,7 @@ namespace RootBackend.Services
             var json = JsonSerializer.Serialize(request);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.PostAsync("https://root-nlp.fly.dev/analyze", content);
+            var response = await _httpClient.PostAsync("http://root-nlp.internal/analyze", content);
             if (!response.IsSuccessStatusCode) return null;
 
             var result = await response.Content.ReadAsStringAsync();
