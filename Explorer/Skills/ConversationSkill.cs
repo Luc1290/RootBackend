@@ -27,8 +27,7 @@ namespace RootBackend.Explorer.Skills
 
         public async Task<string?> HandleWithContextAsync(string message, ParsedIntention context, string userId)
         {
-            var prompt = ContextualPromptBuilder.Build(message, context);
-            return await _saba.GetCompletionAsync(prompt);
+            return await _saba.GetCompletionAsync(message);
         }
     }
 }

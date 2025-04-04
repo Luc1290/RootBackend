@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using RootBackend.Utils;
-using RootBackend.Explorer.Services;
 using RootBackend.Explorer.Skills;
 using RootBackend.Services;
 using RootBackend.Data;
@@ -68,17 +67,29 @@ builder.Services.Configure<CookiePolicyOptions>(options =>
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Services HTTP externes
 builder.Services.AddHttpClient<GroqService>();
+builder.Services.AddHttpClient<NlpService>();
+builder.Services.AddHttpClient<PromptService>();
+
+// Services internes
+builder.Services.AddScoped<WebScraperService>();
+builder.Services.AddScoped<MessageService>();
+
+// Skills
 builder.Services.AddSingleton<ConversationSkill>();
 builder.Services.AddSingleton<IRootSkill, ConversationSkill>();
+
 builder.Services.AddSingleton<IntentionSkill>();
 builder.Services.AddSingleton<IRootSkill, IntentionSkill>();
+
 builder.Services.AddScoped<NavigatorSkill>();
 builder.Services.AddSingleton<IRootSkill, NavigatorSkill>(provider => provider.GetRequiredService<NavigatorSkill>());
-builder.Services.AddScoped<WebScraperService>();
+
+// Dispatcher
 builder.Services.AddSingleton<SkillDispatcher>();
-builder.Services.AddSingleton<GroqService>();
-builder.Services.AddScoped<MessageService>();
+
 
 // 📊 DB
 var connectionString = DbUtils.GetConnectionStringFromEnv(builder.Configuration);

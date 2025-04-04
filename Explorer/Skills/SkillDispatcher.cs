@@ -20,21 +20,30 @@ namespace RootBackend.Explorer.Skills
             // 1. Analyse contextuelle via IntentionSkill
             var context = await _intentionSkill.ParseIntentionAsync(message);
 
-            // 2. Parcourir les skills
-            foreach (var skill in _skills)
+            // 2. Routing explicite selon l’intention
+            if (context.Intentions.Contains("recherche") || context.Intentions.Contains("actualité"))
             {
-                if (skill.CanHandle(message))
+                var navigator = _skills.FirstOrDefault(s => s.SkillName == "NavigatorSkill");
+                if (navigator != null)
                 {
-                    var response = await skill.HandleWithContextAsync(message, context, userId);
+                    var response = await navigator.HandleWithContextAsync(message, context, userId);
                     if (!string.IsNullOrWhiteSpace(response))
-                    {
                         return response;
-                    }
+                }
+            }
+            else
+            {
+                var conversation = _skills.FirstOrDefault(s => s.SkillName == "ConversationSkill");
+                if (conversation != null)
+                {
+                    var response = await conversation.HandleWithContextAsync(message, context, userId);
+                    if (!string.IsNullOrWhiteSpace(response))
+                        return response;
                 }
             }
 
-            // 3. Fallback si aucune réponse
             return "Je n'ai pas trouvé de réponse adaptée à ta demande, mais je suis toujours en apprentissage !";
         }
+
     }
 }
