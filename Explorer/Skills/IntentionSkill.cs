@@ -1,7 +1,5 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text;
-using RootBackend.Explorer.Skills;
 using RootBackend.Services;
 
 namespace RootBackend.Explorer.Skills
@@ -15,6 +13,8 @@ namespace RootBackend.Explorer.Skills
             _groq = groq;
         }
 
+        public string SkillName => "IntentionSkill";
+
         public bool CanHandle(string message)
         {
             // Toujours activé en tâche d'analyse
@@ -23,23 +23,33 @@ namespace RootBackend.Explorer.Skills
 
         public async Task<string?> HandleAsync(string message)
         {
-            var prompt = BuildStructuredPrompt(message);
-            var response = await _groq.GetCompletionAsync(prompt);
-
-            var parsed = IntentionParser.Parse(response);
+            var parsed = await ParseIntentionAsync(message);
 
             var summary = $"**Intentions principales** : {string.Join(", ", parsed.Intentions)}\n\n" +
                           $"**Sous-texte** : {parsed.SousTexte}\n\n" +
-                          $"**Émotion perçue** : *{parsed.Emotion}*\n\n" +
-                          $"**Tonalité** : *{parsed.Tonalite}*";
+                          $"**\u00c9motion per\u00e7ue** : *{parsed.Emotion}*\n\n" +
+                          $"**Tonalit\u00e9** : *{parsed.Tonalite}*";
 
             return summary;
+        }
+
+        public async Task<string?> HandleWithContextAsync(string message, ParsedIntention context, string userId)
+        {
+            // Optionnellement, ici tu pourrais enrichir ou revalider le contexte
+            return await HandleAsync(message);
+        }
+
+        public async Task<ParsedIntention> ParseIntentionAsync(string message) // Changement de private à public
+        {
+            var prompt = BuildStructuredPrompt(message);
+            var response = await _groq.GetCompletionAsync(prompt);
+            return IntentionParser.Parse(response);
         }
 
         private string BuildStructuredPrompt(string message)
         {
             return $@"
-Tu es une intelligence avancée dotée d'une capacité de compréhension contextuelle supérieure.
+Tu es une intelligence avancé doté d'une capacité de compréhension contextuelle supérieure.
 Analyse le message de l'utilisateur et retourne uniquement un JSON strict au format suivant :
 
 {{
@@ -53,7 +63,6 @@ Message utilisateur :
 ""{message}""
 ";
         }
-
 
         public static class IntentionParser
         {
@@ -90,4 +99,5 @@ Message utilisateur :
             public string Tonalite { get; set; } = string.Empty;
         }
     }
+
 }

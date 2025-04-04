@@ -1,111 +1,85 @@
 ﻿using Microsoft.Extensions.Logging;
+using RootBackend.Explorer.Services;
 using RootBackend.Models;
 using RootBackend.Services;
-using System.Text.Json;
-using System.Text;
+using System.Diagnostics;
 using static RootBackend.Explorer.Skills.IntentionSkill;
 
 namespace RootBackend.Explorer.Skills
 {
     public class NavigatorSkill : IRootSkill
     {
-        private readonly IHttpClientFactory _httpClientFactory;
-        private readonly ILogger<NavigatorSkill> _logger;
+        private readonly WebScraperService _scraper;
         private readonly GroqService _groqService;
         private readonly MessageService _messageService;
+        private readonly ILogger<NavigatorSkill> _logger;
 
-        public NavigatorSkill(
-            IHttpClientFactory httpClientFactory,
-            ILogger<NavigatorSkill> logger,
-            GroqService groqService,
-            MessageService messageService)
+        public NavigatorSkill(WebScraperService scraper, GroqService groqService, MessageService messageService, ILogger<NavigatorSkill> logger)
         {
-            _httpClientFactory = httpClientFactory;
-            _logger = logger;
+            _scraper = scraper;
             _groqService = groqService;
             _messageService = messageService;
+            _logger = logger;
         }
 
-        public bool CanHandle(string message)
+        public string SkillName => "NavigatorSkill";
+
+        public bool CanHandle(string input)
         {
-            var intention = IntentionParser.Parse(message);
-            return CanHandle(intention);
+            return input.Contains("météo", StringComparison.OrdinalIgnoreCase)
+                || input.Contains("actualité", StringComparison.OrdinalIgnoreCase)
+                || input.Contains("infos", StringComparison.OrdinalIgnoreCase);
         }
 
-        public async Task<string?> HandleAsync(string message)
+        public async Task<string?> HandleAsync(string input)
         {
-            var intention = IntentionParser.Parse(message);
-            return await HandleAsync(message, intention, "anonymous");
+            return await HandleWithContextAsync(input, new ParsedIntention(), "anonymous");
         }
 
-        public bool CanHandle(ParsedIntention intention)
+        public async Task<string?> HandleWithContextAsync(string input, ParsedIntention context, string userId)
         {
-            return intention.Intentions.Contains("websearch")
-                || intention.Intentions.Contains("info")
-                || intention.Intentions.Contains("actualité")
-                || intention.Intentions.Contains("météo")
-                || !intention.Intentions.Any(); // si rien de spécifique détecté, on prend !
-        }
+            _logger.LogInformation("[SCRAPER] 🔍 Requête reçue pour : \"{Input}\"", input);
 
-        public async Task<string> HandleAsync(string userMessage, ParsedIntention context, string userId)
-        {
-            try
+            var (url, pageContent) = await _scraper.ScrapeAsync(input, "navigator");
+
+            if (string.IsNullOrWhiteSpace(pageContent) || pageContent == "Aucun contenu." || pageContent.Contains("Erreur"))
             {
-                _logger.LogInformation($"[SCRAPER] 🔍 Requête reçue pour : \"{userMessage}\"");
-
-                var client = _httpClientFactory.CreateClient();
-                var payload = new { query = userMessage };
-
-                var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-                var response = await client.PostAsync("https://root-web-scraper.fly.dev/scrape", content);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    _logger.LogWarning("[SCRAPER] ❌ Erreur HTTP : " + response.StatusCode);
-                    return "Je n’ai pas pu obtenir de résultat pour cette recherche.";
-                }
-
-                var result = await response.Content.ReadAsStringAsync();
-
-                // Désérialiser le contenu de la page extraite
-                var resultObj = JsonSerializer.Deserialize<JsonElement>(result);
-                var pageContent = resultObj.GetProperty("content").GetString();
-
-                // 🧠 Prompt unique et polyvalent
-                var prompt = $"""
-Tu es un agent de lecture web très rigoureux.
-
-Tu reçois le contenu HTML d’une page web. Ta mission est d’analyser ce contenu **et uniquement ce contenu** pour en tirer des informations précises.
-
-Voici la demande de l’utilisateur :
-"/"/"{ userMessage}"/"/"
-
-Voici le texte extrait de la page HTML :
-"/"/"{ pageContent}"/"/"
-
-Ta réponse doit :
-- Être **factuelle**, basée uniquement sur ce que tu trouves dans le texte.
-- Ne jamais conseiller l'utilisateur d'aller sur un site, utiliser une API ou une application.
-- Ne jamais proposer de code ou d’alternative de recherche.
-- Ne rien inventer si l'information n’est pas clairement indiquée.
-- Si la donnée n’est pas trouvable, réponds simplement : **“Je n’ai pas trouvé cette information sur la page.”**
-
-Tu peux utiliser des puces, titres, tableaux, ou une réponse directe si besoin. Mais reste toujours fidèle au contenu fourni.
-""";
-
-                var aiResponse = await _groqService.GetCompletionAsync(prompt);
-                _logger.LogInformation("[SCRAPER] ✅ Réponse IA : " + aiResponse.Substring(0, Math.Min(200, aiResponse.Length)) + "...");
-
-                await _messageService.SaveUserMessageAsync(userMessage, "websearch", userId);
-                await _messageService.SaveBotMessageAsync(aiResponse, "websearch", userId);
-
-                return aiResponse;
+                _logger.LogWarning("[SCRAPER] ❌ Aucun contenu valide récupéré.");
+                return "Je n’ai pas pu obtenir de résultat pour cette recherche.";
             }
-            catch (Exception ex)
+
+            _logger.LogInformation("[SCRAPER] 📄 Page extraite depuis : {Url}", url);
+
+            string prompt = $@"
+Tu es un assistant intelligent.
+Voici le contenu d'une page web lié à la question : 
+            { input}
+
+=== DÉBUT DU CONTENU SCRAPPÉ ===
+{ pageContent}
+=== FIN DU CONTENU ===
+
+Ta tâche est de répondre à l'utilisateur en te basant uniquement sur ce contenu. Si aucune réponse n’est trouvée, dis-le simplement.
+";
+
+            var reply = await _groqService.AnalyzeHtmlAsync(pageContent, input);
+            _logger.LogInformation("[SCRAPER] ✅ Réponse IA : {Reply}", reply);
+
+            var userMessage = new MessageLog
             {
-                _logger.LogError(ex, "[SCRAPER] ❌ Erreur pendant la navigation");
-                return "Une erreur est survenue pendant la navigation. Réessaie dans un instant.";
-            }
+                Id = Guid.NewGuid(),
+                Content = input,
+                Sender = "user",
+                Source = "navigator-skill",
+                Timestamp = DateTime.UtcNow,
+                Type = "query",
+                UserId = userId
+            };
+
+            await _messageService.SaveUserMessageAsync(userMessage.Content, userMessage.Source, userMessage.UserId);
+            await _messageService.SaveBotMessageAsync(reply, "navigator-skill", userId);
+
+            return reply;
         }
     }
 }
