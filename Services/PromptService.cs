@@ -28,7 +28,7 @@ namespace RootBackend.Services
             var json = JsonSerializer.Serialize(payload);
             var requestContent = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await _http.PostAsync("http://root-nlp.internal:8080/prepare-groq-prompt", requestContent);
+            var response = await _http.PostAsync("https://root-nlp.fly.dev/prepare-groq-prompt", requestContent);
 
             if (!response.IsSuccessStatusCode)
             {
