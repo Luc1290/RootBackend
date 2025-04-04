@@ -18,10 +18,8 @@ namespace RootBackend.Services
         public async Task<NlpResponse?> AnalyzeAsync(string question)
         {
             var request = new { question };
-            var json = JsonSerializer.Serialize(request);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.PostAsJsonAsync("https://root-nlp.fly.dev/analyze", content);
+            var response = await _httpClient.PostAsJsonAsync("https://root-nlp.fly.dev/analyze", request);
             if (!response.IsSuccessStatusCode) return null;
 
             var result = await response.Content.ReadAsStringAsync();
