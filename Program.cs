@@ -79,8 +79,6 @@ builder.Services.AddScoped<WebScraperService>();
 builder.Services.AddScoped<MessageService>();
 
 // Skills
-builder.Services.AddSingleton<ConversationSkill>();
-builder.Services.AddSingleton<IRootSkill, ConversationSkill>();
 
 builder.Services.AddSingleton<IntentionSkill>();
 builder.Services.AddSingleton<IRootSkill, IntentionSkill>();
