@@ -17,7 +17,7 @@ namespace RootBackend.Core
             {
                 case "recherche_web":
                     var query = $"{nlp.Entities.GetValueOrDefault("type_info", "")} {nlp.Entities.GetValueOrDefault("lieu", "")} {nlp.Entities.GetValueOrDefault("date", "")}".Trim();
-                    var scraped = await scraper.GetScrapedContentAsync(query);
+                    var scraped = await scraper.GetScrapedAnswerAsync(query);
 
                     if (string.IsNullOrWhiteSpace(scraped?.Content))
                         return "Désolé, je n’ai pas trouvé d’information fiable.";
