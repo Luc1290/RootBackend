@@ -20,6 +20,7 @@ builder.WebHost.ConfigureKestrel(serverOptions =>
     serverOptions.ListenAnyIP(8080);
 });
 
+// Configurer correctement ForwardedHeaders pour fonctionner derrière un proxy
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedHost;
@@ -27,13 +28,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Clear();
 });
 
-// Configurer les options HTTPS
-builder.Services.Configure<HttpsRedirectionOptions>(options =>
-{
-    options.HttpsPort = 443; // Port standard HTTPS
-});
-
-// 🟢 CORS
+// 🟢 CORS - Simplifié et plus cohérent
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -41,14 +36,10 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
                 "https://www.rootai.fr",
                 "https://rootai.fr",
-                "https://api.rootai.fr",
-                "http://api.rootai.fr", // Ajouter la version HTTP pour les redirections
-                "https://rootfrontend.fly.dev",
-                "http://localhost:61583",
-                "http://localhost:3000"
+                "http://localhost:3000" // Pour le développement
             )
-            .WithHeaders("Content-Type", "Authorization")
-            .WithMethods("GET", "POST", "OPTIONS")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
             .AllowCredentials();
     });
 });
@@ -56,13 +47,13 @@ builder.Services.AddCors(options =>
 // 🛠️ Services
 builder.Services.AddControllers();
 
-// Configuration de la politique de cookies améliorée
+// Configuration de la politique de cookies consolidée
 builder.Services.Configure<CookiePolicyOptions>(options =>
 {
+    // SameSite=None est nécessaire pour les cookies cross-domain
     options.MinimumSameSitePolicy = SameSiteMode.None;
     options.HttpOnly = HttpOnlyPolicy.Always;
     options.Secure = CookieSecurePolicy.Always;
-    options.CheckConsentNeeded = context => false; // Ne pas demander de consentement pour les cookies
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -70,7 +61,12 @@ builder.Services.AddSwaggerGen();
 
 // Services HTTP externes
 builder.Services.AddHttpClient<GroqService>();
-builder.Services.AddHttpClient<NlpService>();
+builder.Services.AddHttpClient<NlpService>((client) => {
+    client.Timeout = TimeSpan.FromSeconds(10); // Ajouter un timeout raisonnable
+});
+builder.Services.AddHttpClient<WebScraperService>((client) => {
+    client.Timeout = TimeSpan.FromSeconds(30); // Plus long pour le scraping
+});
 
 // Services internes
 builder.Services.AddScoped<WebScraperService>();
@@ -87,18 +83,18 @@ builder.Services.AddDbContext<MemoryContext>(options =>
     });
 });
 
-// Session pour stocker des données temporaires - Configuration améliorée
+// Session - Configuration simplifiée
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromMinutes(30); // Durée prolongée
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.None;
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    options.Cookie.IsEssential = true; // Marquer comme essentiel
+    options.Cookie.IsEssential = true;
 });
 
-// 🔐 Auth - Configuration améliorée
+// 🔐 Auth - Configuration corrigée
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
@@ -108,16 +104,18 @@ builder.Services.AddAuthentication(options =>
 .AddCookie(options =>
 {
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    options.Cookie.SameSite = SameSiteMode.None;
+    options.Cookie.SameSite = SameSiteMode.None; // Nécessaire pour l'auth cross-domain
     options.Cookie.HttpOnly = true;
     options.Cookie.Name = "RootAI.Auth";
-    options.Cookie.Domain = ".rootai.fr";
-    options.Cookie.IsEssential = true; // Marquer comme essentiel
 
-    // Augmenter la durée de vie du cookie
+    // Ne pas définir Cookie.Domain si ce n'est pas nécessaire
+    // Cela peut causer des problèmes avec les subdomains
+    // options.Cookie.Domain = ".rootai.fr";
+
+    options.Cookie.IsEssential = true;
     options.ExpireTimeSpan = TimeSpan.FromHours(1);
 
-    // Configurer pour gérer les erreurs d'authentification
+    // Gestion des redirections d'authentification pour les APIs
     options.Events = new CookieAuthenticationEvents
     {
         OnRedirectToAccessDenied = context =>
@@ -145,31 +143,23 @@ if (builder.Environment.IsProduction() ||
 
         if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret))
         {
-            throw new InvalidOperationException("Google ClientId and ClientSecret must be provided.");
+            throw new InvalidOperationException("Google ClientId et ClientSecret doivent être fournis.");
         }
 
         options.ClientId = clientId;
         options.ClientSecret = clientSecret;
         options.CallbackPath = "/api/auth/google-callback";
-
-        // Ajouter des scopes explicites
         options.Scope.Add("profile");
         options.Scope.Add("email");
-
-        // Sauvegarder les tokens pour référence future
         options.SaveTokens = true;
 
-        // Configuration améliorée du cookie de corrélation pour Google
+        // Simplification de la configuration des cookies de corrélation
         options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.CorrelationCookie.SameSite = SameSiteMode.None;
+        options.CorrelationCookie.SameSite = SameSiteMode.None; // Crucial pour l'OAuth cross-origin
         options.CorrelationCookie.HttpOnly = true;
-        options.CorrelationCookie.Domain = ".rootai.fr";
-        options.CorrelationCookie.MaxAge = TimeSpan.FromMinutes(30);
-        options.CorrelationCookie.IsEssential = true; // Marquer comme essentiel
-        options.CorrelationCookie.Name = "RootAI.GoogleOAuth.Correlation";
-        options.CorrelationCookie.Path = "/";
+        options.CorrelationCookie.IsEssential = true;
 
-        // Configurer les événements OAuth pour améliorer la gestion des erreurs
+        // Configurer les événements OAuth
         options.Events = new OAuthEvents
         {
             OnRedirectToAuthorizationEndpoint = context =>
@@ -180,47 +170,17 @@ if (builder.Environment.IsProduction() ||
                     Scheme = "https"
                 }.Uri.ToString();
 
-                Console.WriteLine($"Redirection vers le point d'autorisation: {redirectUri}");
-
-                // Ajouter un paramètre de cache-buster pour éviter les problèmes de cache
-                var separator = redirectUri.Contains("?") ? "&" : "?";
-                redirectUri = $"{redirectUri}{separator}t={DateTime.UtcNow.Ticks}";
-
                 context.Response.Redirect(redirectUri);
                 return Task.CompletedTask;
             },
             OnRemoteFailure = context =>
             {
                 Console.WriteLine($"Erreur OAuth: {context.Failure?.Message}");
-                // Ajouter plus de détails dans les logs
-                if (context.Failure != null)
-                {
-                    Console.WriteLine($"Exception détails: {context.Failure}");
-                    Console.WriteLine($"Stack trace: {context.Failure.StackTrace}");
-                }
 
                 // Rediriger vers la page de login du frontend avec des informations d'erreur
                 var errorMessage = context.Failure?.Message ?? "Erreur d'authentification";
                 context.Response.Redirect("https://rootai.fr/login?error=" + Uri.EscapeDataString(errorMessage));
                 context.HandleResponse();
-                return Task.CompletedTask;
-            },
-            OnCreatingTicket = context =>
-            {
-                Console.WriteLine("Création du ticket d'authentification réussie");
-                Console.WriteLine($"Identité de l'utilisateur: {context.Identity?.Name}");
-                return Task.CompletedTask;
-            },
-            OnTicketReceived = context =>
-            {
-                Console.WriteLine("Ticket d'authentification reçu");
-
-                // Évite les requêtes répétées
-                if (context.Properties?.Items.ContainsKey(".redirect") == true)
-                {
-                    context.Properties.RedirectUri = "https://rootai.fr"; // redirection frontend après login
-                }
-
                 return Task.CompletedTask;
             }
         };
@@ -229,117 +189,79 @@ if (builder.Environment.IsProduction() ||
 
 var app = builder.Build();
 
-// Middleware de débogage des cookies - AJOUT
-app.Use(async (context, next) =>
-{
-    if (context.Request.Path.StartsWithSegments("/api/auth") ||
-        context.Request.Path.StartsWithSegments("/login") ||
-        context.Request.Path.StartsWithSegments("/debug-cookies"))
-    {
-        Console.WriteLine($"[DEBUG] Request Path: {context.Request.Path}");
-        Console.WriteLine("[DEBUG] Cookies avant traitement:");
-        foreach (var cookie in context.Request.Cookies)
-        {
-            Console.WriteLine($"[DEBUG] Cookie: {cookie.Key}={cookie.Value}");
-        }
-
-        // Capture les Set-Cookie de la réponse
-        context.Response.OnStarting(() =>
-        {
-            Console.WriteLine("[DEBUG] Cookies après traitement:");
-            foreach (var cookie in context.Response.Headers.Where(h => h.Key == "Set-Cookie"))
-            {
-                Console.WriteLine($"[DEBUG] Set-Cookie: {cookie.Value}");
-            }
-            return Task.CompletedTask;
-        });
-    }
-
-    await next();
-});
-
-// Placer ForwardedHeaders AVANT tout le reste
-app.UseForwardedHeaders(new ForwardedHeadersOptions
-{
-    ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedHost
-});
-
-// Forcer le schéma HTTPS dans les URLs générées avec des exceptions pour les callbacks
-app.Use(async (context, next) =>
-{
-    // Forcer HTTPS dans le schéma
-    context.Request.Scheme = "https";
-
-    // Si nous sommes déjà dans une requête de callback OAuth, ne pas rediriger
-    if (context.Request.Path.StartsWithSegments("/api/auth/google-callback"))
-    {
-        await next();
-        return;
-    }
-
-    // Si la requête arrive en HTTP, rediriger vers HTTPS
-    if (context.Request.Headers.TryGetValue("X-Forwarded-Proto", out var proto) &&
-        proto == "http")
-    {
-        var httpsUrl = $"https://{context.Request.Host}{context.Request.Path}{context.Request.QueryString}";
-        context.Response.Redirect(httpsUrl, permanent: true);
-        return;
-    }
-
-    await next();
-});
-
-// Ajouter le header CORS manuellement 
-app.Use(async (context, next) =>
-{
-    context.Response.Headers.Append("Access-Control-Allow-Credentials", "true");
-    await next();
-});
-
-// Ajouter plus de détails d'erreur en développement
+// Middleware de débogage uniquement en développement
 if (app.Environment.IsDevelopment())
 {
-    app.UseDeveloperExceptionPage();
-}
-else
-{
-    app.UseExceptionHandler("/error");
-}
-
-// ORDRE CORRECT DES MIDDLEWARES
-app.UseSession(); // Session avant CookiePolicy
-//app.UseCookiePolicy(); // CookiePolicy avant Authentication
-
-app.Use(async (context, next) => {
-    Console.WriteLine($"Request Path: {context.Request.Path}, Host: {context.Request.Host}, Scheme: {context.Request.Scheme}");
-    await next();
-});
-
-// DB Migration
-using (var scope = app.Services.CreateScope())
-{
-    var context = scope.ServiceProvider.GetRequiredService<MemoryContext>();
-    if (!app.Environment.IsDevelopment())
+    app.Use(async (context, next) =>
     {
+        if (context.Request.Path.StartsWithSegments("/api/auth") ||
+            context.Request.Path.StartsWithSegments("/login") ||
+            context.Request.Path.StartsWithSegments("/debug-cookies"))
+        {
+            Console.WriteLine($"[DEBUG] Request Path: {context.Request.Path}");
+            Console.WriteLine("[DEBUG] Cookies avant traitement:");
+            foreach (var cookie in context.Request.Cookies)
+            {
+                Console.WriteLine($"[DEBUG] Cookie: {cookie.Key}={cookie.Value}");
+            }
+
+            context.Response.OnStarting(() =>
+            {
+                Console.WriteLine("[DEBUG] Cookies après traitement:");
+                foreach (var cookie in context.Response.Headers.Where(h => h.Key == "Set-Cookie"))
+                {
+                    Console.WriteLine($"[DEBUG] Set-Cookie: {cookie.Value}");
+                }
+                return Task.CompletedTask;
+            });
+        }
+
+        await next();
+    });
+}
+
+// ORDRE CORRECT DES MIDDLEWARES:
+
+// 1. D'abord, ForwardedHeaders pour déterminer l'IP et le protocole réels
+app.UseForwardedHeaders();
+
+// 2. HTTPS Redirection simplifiée
+app.UseHttpsRedirection();
+
+// 3. Session avant Authentication
+app.UseSession();
+
+// 4. Routing avant CORS
+app.UseRouting();
+
+// 5. CORS avant Authentication
+app.UseCors("AllowFrontend");
+
+// 6. Authentication avant Authorization
+app.UseAuthentication();
+app.UseAuthorization();
+
+// Configuration endpoint
+app.MapControllers();
+
+// Migrations DB uniquement en production
+if (!app.Environment.IsDevelopment())
+{
+    using (var scope = app.Services.CreateScope())
+    {
+        var context = scope.ServiceProvider.GetRequiredService<MemoryContext>();
         context.Database.Migrate();
     }
 }
 
-// Swagger
+// Swagger uniquement en développement
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-// Ordre correct des middlewares
-app.UseRouting();
-app.UseCors("AllowFrontend");
-app.UseAuthentication(); // Authentication avant Authorization
-app.UseAuthorization();
-app.MapControllers();
-
-// Endpoint de débogage amélioré
+// Endpoint de diagnostic
 app.MapGet("/debug-cookies", (HttpContext context) => {
     var cookies = context.Request.Cookies;
     var cookieList = cookies.Select(c => $"{c.Key}: {c.Value}").ToList();
