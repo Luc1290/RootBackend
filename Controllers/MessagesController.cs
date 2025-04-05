@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
+using RootBackend.Core;
 using RootBackend.Models;
 using RootBackend.Services;
 using System.Security.Claims;
@@ -12,60 +13,49 @@ namespace RootBackend.Controllers
         private readonly MessageService _messageService;
         private readonly NlpService _nlp;
         private readonly GroqService _groq;
+        private readonly WebScraperService _webScraper;
 
-
-        public MessagesController(MessageService messageService, NlpService nlpService, GroqService groq)
-
+        public MessagesController( MessageService messageService, NlpService nlpService, GroqService groq, WebScraperService webScraper)
         {
             _messageService = messageService;
             _nlp = nlpService;
             _groq = groq;
+            _webScraper = webScraper;
         }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<MessageLog>>> GetMessages(string? userId = null)
         {
-            // Si userId est spécifié, récupérer les messages de cet utilisateur
-            // Sinon, récupérer tous les messages récents
             return await _messageService.GetRecentMessagesAsync(50, userId);
         }
 
         [HttpPost]
         public async Task<ActionResult<MessageLog>> PostMessage(MessageLog message)
         {
-            // Récupérer l'identifiant de l'utilisateur connecté, ou "anonymous" si non connecté
             string userId = "anonymous";
             if (User.Identity?.IsAuthenticated == true)
             {
                 userId = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value ?? "anonymous";
             }
 
-            // Mise à jour des propriétés du message
             message.Id = Guid.NewGuid();
             message.Timestamp = DateTime.UtcNow;
-            message.UserId = userId; // Définir l'ID utilisateur
+            message.UserId = userId;
 
-            // Sauvegarde du message utilisateur via le service
             var savedMessage = await _messageService.SaveUserMessageAsync(message.Content, "messages", userId);
 
-            // Appel à l'API NLP pour analyser le message  //
             var nlpResult = await _nlp.AnalyzeAsync(message.Content);
-            if (nlpResult == null || string.IsNullOrWhiteSpace(nlpResult.Prompt))
+            if (nlpResult == null || string.IsNullOrWhiteSpace(nlpResult.Intent))
             {
                 return StatusCode(500, "Erreur NLP");
             }
 
-            // Appel à l'API Groq pour générer une réponse //
-            var aiReply = await _groq.GetCompletionAsync(nlpResult.Prompt); // ✅ propre, unique
+            var aiReply = await IntentRouter.HandleAsync(nlpResult, message.Content, _groq, _webScraper);
 
-
-
-            // Sauvegarde de la réponse de l'IA via le service
             var response = await _messageService.SaveBotMessageAsync(aiReply, "ai", userId);
             return Ok(response);
         }
 
-        // Nouvelle méthode pour récupérer les conversations d'un utilisateur spécifique
         [HttpGet("conversation")]
         public async Task<ActionResult<IEnumerable<MessageLog>>> GetUserConversation(string? userId = null)
         {
