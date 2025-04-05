@@ -15,7 +15,11 @@ namespace RootBackend.Controllers
         private readonly GroqService _groq;
         private readonly WebScraperService _webScraper;
 
-        public MessagesController( MessageService messageService, NlpService nlpService, GroqService groq, WebScraperService webScraper)
+        public MessagesController(
+            MessageService messageService,
+            NlpService nlpService,
+            GroqService groq,
+            WebScraperService webScraper)
         {
             _messageService = messageService;
             _nlp = nlpService;
@@ -42,7 +46,7 @@ namespace RootBackend.Controllers
             message.Timestamp = DateTime.UtcNow;
             message.UserId = userId;
 
-            var savedMessage = await _messageService.SaveUserMessageAsync(message.Content, "messages", userId);
+            await _messageService.SaveUserMessageAsync(message.Content, "messages", userId);
 
             var nlpResult = await _nlp.AnalyzeAsync(message.Content);
             if (nlpResult == null || string.IsNullOrWhiteSpace(nlpResult.Intent))

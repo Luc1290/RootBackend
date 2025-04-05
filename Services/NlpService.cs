@@ -1,5 +1,5 @@
 ﻿using System.Net.Http;
-using System.Text;
+using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading.Tasks;
 using RootBackend.Models;
@@ -22,9 +22,9 @@ namespace RootBackend.Services
             var response = await _httpClient.PostAsJsonAsync("https://root-nlp.fly.dev/analyze", request);
             if (!response.IsSuccessStatusCode) return null;
 
-            var result = await response.Content.ReadAsStringAsync();
+            var content = await response.Content.ReadAsStringAsync();
 
-            return JsonSerializer.Deserialize<NlpResponse>(result, new JsonSerializerOptions
+            return JsonSerializer.Deserialize<NlpResponse>(content, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
             });
