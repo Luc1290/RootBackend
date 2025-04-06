@@ -28,31 +28,35 @@ namespace RootBackend.Controllers
             GroqService groq,
             WebScraperService webScraper,
             ILogger<MessagesController> logger,
-            IntentRouter intentRouter) // Add this parameter
+            IntentRouter intentRouter) 
         {
             _messageService = messageService;
             _nlp = nlpService;
             _groq = groq;
             _webScraper = webScraper;
             _logger = logger;
-            _intentRouter = intentRouter; // Initialize the new field
+            _intentRouter = intentRouter; 
         }
 
+        // GET api/messages
         [HttpGet]
         public async Task<ActionResult<IEnumerable<MessageLog>>> GetMessages(string? userId = null)
         {
             try
             {
+                // Déterminer l'utilisateur
                 _logger.LogInformation("Récupération des messages pour utilisateur: {UserId}", userId ?? "tous");
                 return await _messageService.GetRecentMessagesAsync(50, userId);
             }
             catch (Exception ex)
             {
+                // En cas d'erreur, loguer et retourner une réponse d'erreur
                 _logger.LogError(ex, "Erreur lors de la récupération des messages");
                 return StatusCode(500, new { error = "Erreur serveur lors de la récupération des messages" });
             }
         }
 
+        // POST api/messages
         [HttpPost]
         public async Task<ActionResult<MessageLog>> PostMessage(MessageLog message)
         {
@@ -122,6 +126,7 @@ namespace RootBackend.Controllers
             }
         }
 
+        // Endpoint pour récupérer la dernière réponse du bot
         [HttpGet("conversation")]
         public async Task<ActionResult<IEnumerable<MessageLog>>> GetUserConversation(string? userId = null)
         {
