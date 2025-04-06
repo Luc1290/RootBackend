@@ -129,7 +129,7 @@ namespace RootBackend.Services
         public GroqMessage[] Messages { get; set; } = Array.Empty<GroqMessage>();
 
         [JsonPropertyName("temperature")]
-        public double Temperature { get; set; } = 0.7;
+        public double Temperature { get; set; } = 0.8;
 
         [JsonPropertyName("max_tokens")]
         public int MaxTokens { get; set; }
