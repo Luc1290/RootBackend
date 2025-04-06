@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RootBackend.Core;
 using RootBackend.Models;
+using System.Text.Json.Serialization;
 
 namespace RootBackend.Services
 {
@@ -121,15 +122,25 @@ namespace RootBackend.Services
     // Classes de modèle pour les requêtes Groq
     public class GroqCompletionRequest
     {
+        [JsonPropertyName("model")]
         public string Model { get; set; } = "";
+
+        [JsonPropertyName("messages")]
         public GroqMessage[] Messages { get; set; } = Array.Empty<GroqMessage>();
+
+        [JsonPropertyName("temperature")]
         public double Temperature { get; set; } = 0.7;
-        public int MaxTokens { get; set; }  
+
+        [JsonPropertyName("max_tokens")]
+        public int MaxTokens { get; set; }
     }
 
     public class GroqMessage
     {
+        [JsonPropertyName("role")]
         public string Role { get; set; } = "";
+
+        [JsonPropertyName("content")]
         public string Content { get; set; } = "";
     }
 }
