@@ -82,8 +82,8 @@ namespace RootBackend.Services
                     new GroqMessage { Role = "system", Content = systemPrompt },
                     new GroqMessage { Role = "user", Content = message }
                 },
-                Temperature = 0.1,
-                MaxTokens = 50
+                Temperature = 0.8,
+                MaxTokens = 30000
             };
 
             try
