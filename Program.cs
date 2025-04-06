@@ -78,9 +78,13 @@ builder.Services.AddScoped<PromptService>();
 
 // Enregistrement des handlers d'intention
 builder.Services.AddScoped<WebSearchIntentHandler>();
+builder.Services.AddScoped<IIntentHandler, WebSearchIntentHandler>();
 builder.Services.AddScoped<ConversationIntentHandler>();
+builder.Services.AddScoped<IIntentHandler, ConversationIntentHandler>();
 builder.Services.AddScoped<CodeGenerationIntentHandler>();
+builder.Services.AddScoped<IIntentHandler, CodeGenerationIntentHandler>();
 builder.Services.AddScoped<ImageGenerationIntentHandler>();
+builder.Services.AddScoped<IIntentHandler, ImageGenerationIntentHandler>();
 // Ajouter d'autres handlers au besoin
 
 // Enregistrer la factory après les handlers

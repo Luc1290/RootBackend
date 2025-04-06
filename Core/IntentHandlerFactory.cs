@@ -1,52 +1,54 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using Microsoft.Extensions.DependencyInjection;
-using RootBackend.Core.IntentHandlers;
+﻿using RootBackend.Core.IntentHandlers;
 
-namespace RootBackend.Core
+public class IntentHandlerFactory
 {
-    public class IntentHandlerFactory
+    private readonly IServiceProvider _serviceProvider;
+    private readonly Dictionary<string, Type> _intentHandlers;
+
+    public IntentHandlerFactory(IServiceProvider serviceProvider)
     {
-        private readonly IServiceProvider _serviceProvider;
-        private readonly Dictionary<string, Type> _intentHandlers;
+        _serviceProvider = serviceProvider;
+        _intentHandlers = new Dictionary<string, Type>();
 
-        public IntentHandlerFactory(IServiceProvider serviceProvider)
+        // Trouver tous les handlers d'intention dans l'assembly
+        var handlerTypes = AppDomain.CurrentDomain.GetAssemblies()
+            .SelectMany(a => a.GetTypes())
+            .Where(t => typeof(IIntentHandler).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract);
+
+        // Enregistrez les types dans le dictionnaire en utilisant un attribut ou une convention de nommage
+        foreach (var handlerType in handlerTypes)
         {
-            _serviceProvider = serviceProvider;
+            // Option 1: Utiliser une convention de nommage (par exemple, "CodeGenerationIntentHandler" -> "code-generation")
+            string intentName = handlerType.Name.Replace("IntentHandler", "").ToLower();
+            _intentHandlers[intentName] = handlerType;
 
-            // Trouver tous les handlers d'intention dans l'assembly
-            var handlerTypes = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => a.GetTypes())
-                .Where(t => typeof(IIntentHandler).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract);
-
-            _intentHandlers = new Dictionary<string, Type>();
-
-            foreach (var handlerType in handlerTypes)
-            {
-                // Créer temporairement une instance pour accéder à la propriété IntentName
-                var handler = (IIntentHandler?)Activator.CreateInstance(handlerType);
-                if (handler != null)
-                {
-                    _intentHandlers[handler.IntentName] = handlerType;
-                }
-            }
+            // Assurez-vous que ces types sont enregistrés dans le conteneur DI
+            // Ceci devrait être fait dans Startup.cs ou Program.cs
         }
 
-        public IIntentHandler GetHandler(string intent)
-        {
-            if (_intentHandlers.TryGetValue(intent, out var handlerType))
-            {
-                var handler = _serviceProvider.GetService(handlerType) as IIntentHandler;
-                if (handler != null)
-                {
-                    return handler;
-                }
-            }
+        // Ou, récupérez tous les handlers déjà instanciés et enregistrez-les par leur nom d'intention
+        var handlers = handlerTypes
+            .Select(t => serviceProvider.GetService(t) as IIntentHandler)
+            .Where(h => h != null);
 
-            // Fallback handler pour les intentions inconnues
-            return _serviceProvider.GetRequiredService<ConversationIntentHandler>();
+        foreach (var handler in handlers)
+        {
+            if (handler != null)
+            {
+                _intentHandlers[handler.IntentName] = handler.GetType();
+            }
+        }
+    }
+
+    public IIntentHandler GetHandler(string intent)
+    {
+        // Le reste du code reste inchangé
+        if (_intentHandlers.TryGetValue(intent, out var handlerType))
+        {
+            // Utiliser le ServiceProvider pour obtenir l'instance correcte
+            return (IIntentHandler)_serviceProvider.GetRequiredService(handlerType);
         }
 
+        return _serviceProvider.GetRequiredService<ConversationIntentHandler>();
     }
 }
