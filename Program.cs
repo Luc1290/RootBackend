@@ -11,6 +11,8 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.AspNetCore.HttpsPolicy;
 using System.Security.Claims;
+using RootBackend.Core.IntentHandlers;
+using RootBackend.Core;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -59,18 +61,31 @@ builder.Services.Configure<CookiePolicyOptions>(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Services HTTP externes
-builder.Services.AddHttpClient<GroqService>();
+// Services HTTP externes 
+builder.Services.AddHttpClient<GroqHttpClient>();
+builder.Services.AddScoped<GroqService>();
 builder.Services.AddHttpClient<NlpService>((client) => {
-    client.Timeout = TimeSpan.FromSeconds(10); // Ajouter un timeout raisonnable
+    client.Timeout = TimeSpan.FromSeconds(10);
 });
 builder.Services.AddHttpClient<WebScraperService>((client) => {
-    client.Timeout = TimeSpan.FromSeconds(30); // Plus long pour le scraping
+    client.Timeout = TimeSpan.FromSeconds(30);
 });
 
-// Services internes
+// Services internes 
 builder.Services.AddScoped<WebScraperService>();
 builder.Services.AddScoped<MessageService>();
+builder.Services.AddScoped<PromptService>();
+
+// Enregistrement des handlers d'intention
+builder.Services.AddScoped<WebSearchIntentHandler>();
+builder.Services.AddScoped<ConversationIntentHandler>();
+builder.Services.AddScoped<CodeGenerationIntentHandler>();
+builder.Services.AddScoped<ImageGenerationIntentHandler>();
+// Ajouter d'autres handlers au besoin
+
+// Enregistrer la factory après les handlers
+builder.Services.AddScoped<IntentHandlerFactory>();
+builder.Services.AddScoped<IntentRouter>();
 
 // 📊 DB
 var connectionString = DbUtils.GetConnectionStringFromEnv(builder.Configuration);
@@ -110,7 +125,7 @@ builder.Services.AddAuthentication(options =>
 
     // Ne pas définir Cookie.Domain si ce n'est pas nécessaire
     // Cela peut causer des problèmes avec les subdomains
-    // options.Cookie.Domain = ".rootai.fr";
+    options.Cookie.Domain = ".rootai.fr";
 
     options.Cookie.IsEssential = true;
     options.ExpireTimeSpan = TimeSpan.FromHours(1);

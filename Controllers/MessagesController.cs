@@ -19,19 +19,23 @@ namespace RootBackend.Controllers
         private readonly GroqService _groq;
         private readonly WebScraperService _webScraper;
         private readonly ILogger<MessagesController> _logger;
+        private readonly IntentRouter _intentRouter;
+
 
         public MessagesController(
             MessageService messageService,
             NlpService nlpService,
             GroqService groq,
             WebScraperService webScraper,
-            ILogger<MessagesController> logger)
+            ILogger<MessagesController> logger,
+            IntentRouter intentRouter) // Add this parameter
         {
             _messageService = messageService;
             _nlp = nlpService;
             _groq = groq;
             _webScraper = webScraper;
             _logger = logger;
+            _intentRouter = intentRouter; // Initialize the new field
         }
 
         [HttpGet]
@@ -87,7 +91,8 @@ namespace RootBackend.Controllers
                 _logger.LogInformation("Intention détectée: {Intent}", nlpResult.Intent);
 
                 // Obtenir la réponse selon l'intention
-                var aiReply = await IntentRouter.HandleAsync(nlpResult, message.Content, _groq, _webScraper, _logger);
+                var aiReply = await _intentRouter.HandleAsync(nlpResult, message.Content, _logger);
+
 
                 // Enregistrer et retourner la réponse
                 var response = await _messageService.SaveBotMessageAsync(aiReply, "ai", userId);
